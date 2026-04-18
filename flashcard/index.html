@@ -83,6 +83,7 @@
           <div class="answer-correct-label">正解：<span id="answer-correct-text"></span></div>
           <div class="answer-explanation" id="answer-explanation"></div>
           <button class="btn-next" id="btn-next">次の問題 →</button>
+          <button class="btn-report" id="btn-report">⚠ この問題に誤りを報告</button>
         </div>
       </div>
     </div>
@@ -114,6 +115,40 @@
       <div class="wrong-list-wrap" id="wrong-list-wrap" style="display:none">
         <h3>間違えた問題</h3>
         <div class="wrong-list" id="wrong-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER (start screen only, shown via JS) -->
+  <footer class="app-footer" id="app-footer">
+    <button class="btn-disclaimer" id="btn-disclaimer">免責事項</button>
+  </footer>
+
+  <!-- DISCLAIMER MODAL -->
+  <div class="modal-overlay hidden" id="modal-overlay">
+    <div class="modal">
+      <h3 class="modal-title">免責事項</h3>
+      <div class="modal-body">
+        <p>本サービスは保育士試験の学習支援を目的としたものです。掲載している問題・解説は参考情報であり、正確性・完全性を保証するものではありません。</p>
+        <p>本サービスの利用により生じたいかなる損害についても、運営者は一切の責任を負いません。試験対策には必ず公式テキストや公式発表の情報をご確認ください。</p>
+        <p>掲載問題はオリジナル作成問題です。実際の試験問題とは異なる場合があります。問題の誤りにお気づきの場合は「誤りを報告」ボタンよりお知らせください。</p>
+      </div>
+      <button class="btn-modal-close" id="btn-modal-close">閉じる</button>
+    </div>
+  </div>
+
+  <!-- REPORT MODAL -->
+  <div class="modal-overlay hidden" id="report-overlay">
+    <div class="modal">
+      <h3 class="modal-title">⚠ 誤りを報告</h3>
+      <div class="modal-body">
+        <p class="report-question-preview" id="report-question-preview"></p>
+        <label class="report-label">誤りの内容（任意）</label>
+        <textarea class="report-textarea" id="report-textarea" placeholder="例：選択肢Bの説明が正しくないと思います"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="btn-report-send">報告する</button>
+        <button class="btn-ghost" id="btn-report-cancel">キャンセル</button>
       </div>
     </div>
   </div>

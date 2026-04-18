@@ -227,6 +227,43 @@
     initStartScreen();
   });
 
+  // ---- Report button ----
+  const REPORT_KEY = 'hoikushi_reports';
+
+  document.getElementById('btn-report').addEventListener('click', () => {
+    const q = state.queue[state.current];
+    document.getElementById('report-question-preview').textContent = q.question;
+    document.getElementById('report-textarea').value = '';
+    document.getElementById('report-overlay').classList.remove('hidden');
+  });
+
+  document.getElementById('btn-report-cancel').addEventListener('click', () => {
+    document.getElementById('report-overlay').classList.add('hidden');
+  });
+
+  document.getElementById('btn-report-send').addEventListener('click', () => {
+    const q = state.queue[state.current];
+    const note = document.getElementById('report-textarea').value.trim();
+    const reports = JSON.parse(localStorage.getItem(REPORT_KEY) || '[]');
+    reports.push({ id: q.id, subject: q.subject, question: q.question, note: note, date: new Date().toISOString() });
+    localStorage.setItem(REPORT_KEY, JSON.stringify(reports));
+    document.getElementById('report-overlay').classList.add('hidden');
+    alert('報告を受け付けました。ありがとうございます。');
+  });
+
+  // ---- Disclaimer modal ----
+  document.getElementById('btn-disclaimer').addEventListener('click', () => {
+    document.getElementById('modal-overlay').classList.remove('hidden');
+  });
+  document.getElementById('btn-modal-close').addEventListener('click', () => {
+    document.getElementById('modal-overlay').classList.add('hidden');
+  });
+  document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-overlay')) {
+      document.getElementById('modal-overlay').classList.add('hidden');
+    }
+  });
+
   // ---- Utilities ----
   function shuffle(arr) {
     const a = arr.slice();
