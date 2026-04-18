@@ -1,0 +1,72 @@
+name: 誤り報告 日次チェック
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 毎日9:00 JST (= 0:00 UTC)
+  workflow_dispatch:      # 手動実行も可能
+
+permissions:
+  issues: write
+
+jobs:
+  check-reports:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Supabaseから未確認レポートを取得
+        id: fetch
+        run: |
+          RESPONSE=$(curl -s \
+            "https://udrkuswxyfnzdupvqcjg.supabase.co/rest/v1/reports?reviewed=eq.false&select=*&order=created_at.asc" \
+            -H "apikey: ${{ secrets.service_role }}" \
+            -H "Authorization: Bearer ${{ secrets.service_role }}")
+
+          COUNT=$(echo "$RESPONSE" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+          # 複数行対応のため delimiter を使用
+          echo "response<<DELIM" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "DELIM" >> $GITHUB_OUTPUT
+
+      - name: レポートがなければスキップ
+        if: steps.fetch.outputs.count == '0'
+        run: echo "新しい報告はありませんでした。"
+
+      - name: GitHub Issue を作成
+        if: steps.fetch.outputs.count != '0'
+        uses: actions/github-script@v7
+        env:
+          REPORT_DATA: ${{ steps.fetch.outputs.response }}
+        with:
+          script: |
+            const data = JSON.parse(process.env.REPORT_DATA);
+            const today = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
+
+            const body_lines = data.map((r, i) => [
+              `### ${i + 1}. 問題ID: ${r.question_id}（${r.subject}）`,
+              `**問題文:** ${r.question_text}`,
+              `**報告内容:** ${r.note || '（内容なし）'}`,
+              `**報告日時:** ${new Date(r.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`
+            ].join('\n')).join('\n\n---\n\n');
+
+            const body = [
+              `## 未確認の誤り報告が ${data.length} 件あります`,
+              '',
+              body_lines,
+              '',
+              '---',
+              '',
+              '## 対応手順',
+              '1. 上記の問題内容を確認する',
+              '2. `flashcard/questions.js` の該当問題を修正してコミット・プッシュ',
+              '3. Supabase の Table Editor で該当レポートの `reviewed` を `true` に更新',
+              '4. このIssueをクローズする',
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[要確認] 問題の誤り報告 ${data.length}件 (${today})`,
+              body: body,
+            });
