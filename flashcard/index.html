@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>保育士試験 一問一答</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- START SCREEN -->
+  <div id="screen-start" class="screen active">
+    <header class="app-header">
+      <h1 class="app-title">保育士試験<span>一問一答</span></h1>
+      <p class="app-subtitle">全9科目 · 100問 · 4択形式</p>
+    </header>
+
+    <main class="start-main">
+      <section class="subject-section">
+        <h2>科目を選択</h2>
+        <div class="subject-grid">
+          <button class="subject-btn active" data-subject="all">全科目</button>
+          <button class="subject-btn" data-subject="保育原理">保育原理</button>
+          <button class="subject-btn" data-subject="教育原理">教育原理</button>
+          <button class="subject-btn" data-subject="社会福祉">社会福祉</button>
+          <button class="subject-btn" data-subject="子ども家庭福祉">子ども家庭福祉</button>
+          <button class="subject-btn" data-subject="社会的養護">社会的養護</button>
+          <button class="subject-btn" data-subject="保育の心理学">保育の心理学</button>
+          <button class="subject-btn" data-subject="子どもの保健">子どもの保健</button>
+          <button class="subject-btn" data-subject="子どもの食と栄養">子どもの食と栄養</button>
+          <button class="subject-btn" data-subject="保育実習理論">保育実習理論</button>
+        </div>
+      </section>
+
+      <section class="history-section" id="history-section">
+        <h2>学習履歴</h2>
+        <div class="history-stats" id="history-stats">
+          <div class="stat-box">
+            <span class="stat-num" id="stat-total">0</span>
+            <span class="stat-label">累計回答</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-num" id="stat-correct">0</span>
+            <span class="stat-label">正解数</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-num" id="stat-rate">—</span>
+            <span class="stat-label">正答率</span>
+          </div>
+        </div>
+        <button class="btn-ghost" id="btn-clear-history">履歴をリセット</button>
+      </section>
+
+      <div class="start-actions">
+        <button class="btn-primary" id="btn-start">クイズをはじめる</button>
+        <button class="btn-secondary" id="btn-review" style="display:none">間違えた問題を復習</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div id="screen-quiz" class="screen">
+    <div class="quiz-header">
+      <button class="btn-back" id="btn-back">← 戻る</button>
+      <div class="quiz-meta">
+        <span class="quiz-subject" id="quiz-subject-label"></span>
+        <span class="quiz-progress" id="quiz-progress">1 / 10</span>
+      </div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <div class="card-wrap">
+      <div class="card" id="card">
+        <div class="card-question" id="card-question"></div>
+        <div class="choices" id="choices"></div>
+        <div class="card-answer hidden" id="card-answer">
+          <div class="answer-badge" id="answer-badge"></div>
+          <div class="answer-correct-label">正解：<span id="answer-correct-text"></span></div>
+          <div class="answer-explanation" id="answer-explanation"></div>
+          <button class="btn-next" id="btn-next">次の問題 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT SCREEN -->
+  <div id="screen-result" class="screen">
+    <div class="result-wrap">
+      <h2 class="result-title">結果</h2>
+      <div class="score-circle">
+        <svg viewBox="0 0 120 120">
+          <circle class="score-bg" cx="60" cy="60" r="52"/>
+          <circle class="score-fill" id="score-ring" cx="60" cy="60" r="52"/>
+        </svg>
+        <div class="score-text">
+          <span class="score-num" id="score-num">0</span>
+          <span class="score-denom" id="score-denom">/ 10</span>
+        </div>
+      </div>
+      <p class="score-rate" id="score-rate"></p>
+      <p class="score-comment" id="score-comment"></p>
+
+      <div class="result-actions">
+        <button class="btn-primary" id="btn-retry">もう一度</button>
+        <button class="btn-secondary" id="btn-review-wrong">間違えた問題を復習</button>
+        <button class="btn-ghost" id="btn-home">トップへ戻る</button>
+      </div>
+
+      <div class="wrong-list-wrap" id="wrong-list-wrap" style="display:none">
+        <h3>間違えた問題</h3>
+        <div class="wrong-list" id="wrong-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
