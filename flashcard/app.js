@@ -7,6 +7,13 @@
   const QUIZ_COUNT = 10;
   const STORAGE_KEY = 'hoikushi_quiz_history';
 
+  // ---- Supabase ----
+  const { createClient } = supabase;
+  const db = createClient(
+    'https://udrkuswxyfnzdupvqcjg.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkcmt1c3d4eWZuemR1cHZxY2pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0ODk3MTIsImV4cCI6MjA5MjA2NTcxMn0.XQ7JHEaIsImIuEqE0WRwV_WFeeHYpmBq5KIJNPFNP2E'
+  );
+
   // ---- State ----
   let state = {
     selectedSubject: 'all',
@@ -228,8 +235,6 @@
   });
 
   // ---- Report button ----
-  const REPORT_KEY = 'hoikushi_reports';
-
   document.getElementById('btn-report').addEventListener('click', () => {
     const q = state.queue[state.current];
     document.getElementById('report-question-preview').textContent = q.question;
@@ -241,14 +246,31 @@
     document.getElementById('report-overlay').classList.add('hidden');
   });
 
-  document.getElementById('btn-report-send').addEventListener('click', () => {
+  document.getElementById('btn-report-send').addEventListener('click', async () => {
     const q = state.queue[state.current];
     const note = document.getElementById('report-textarea').value.trim();
-    const reports = JSON.parse(localStorage.getItem(REPORT_KEY) || '[]');
-    reports.push({ id: q.id, subject: q.subject, question: q.question, note: note, date: new Date().toISOString() });
-    localStorage.setItem(REPORT_KEY, JSON.stringify(reports));
+    const sendBtn = document.getElementById('btn-report-send');
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = '送信中…';
+
+    const { error } = await db.from('reports').insert({
+      question_id: q.id,
+      subject: q.subject,
+      question_text: q.question,
+      note: note || null
+    });
+
+    sendBtn.disabled = false;
+    sendBtn.textContent = '報告する';
     document.getElementById('report-overlay').classList.add('hidden');
-    alert('報告を受け付けました。ありがとうございます。');
+
+    if (error) {
+      alert('送信に失敗しました。時間をおいて再度お試しください。');
+      console.error(error);
+    } else {
+      alert('報告を受け付けました。ありがとうございます。');
+    }
   });
 
   // ---- Disclaimer modal ----
