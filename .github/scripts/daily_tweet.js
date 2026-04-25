@@ -17,7 +17,7 @@ const daysSinceEpoch = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
 const question = QUESTIONS[daysSinceEpoch % QUESTIONS.length];
 
 const LABELS = ['A', 'B', 'C', 'D'];
-const SITE_URL = 'https://takakoseki.github.io/koseki-clinic/flashcard/';
+const SITE_URL = 'https://takakoseki.github.io/hoikushi-quiz/flashcard/';
 
 function buildQuestionText(q) {
   const choicesText = q.choices.map((c, i) => `${LABELS[i]}. ${c}`).join('\n');
