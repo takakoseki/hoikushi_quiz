@@ -17,7 +17,7 @@ const daysSinceEpoch = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
 const question = QUESTIONS[daysSinceEpoch % QUESTIONS.length];
 
 const LABELS = ['A', 'B', 'C', 'D'];
-const SITE_URL = 'https://takakoseki.github.io/koseki-clinic/flashcard/';
+const SITE_URL = 'https://takakoseki.github.io/hoikushi_quiz/flashcard/';
 
 function buildQuestionText(q) {
   const choicesText = q.choices.map((c, i) => `${LABELS[i]}. ${c}`).join('\n');
@@ -53,7 +53,7 @@ async function main() {
 <pre style="font-family:sans-serif;font-size:15px;line-height:1.8;">${answerText}</pre>
 `;
 
-  const textBody = `今日の保育士試験1問（${today}）\n\n${questionText}\n\n---\n\n${answerText}`;
+  const textBody = `今日の保育士試験1問（${today})\n\n${questionText}\n\n---\n\n${answerText}`;
 
   const mailOptions = {
     from: process.env.NOTIFY_GMAIL_USER,
