@@ -1,6 +1,6 @@
 'use strict';
 
-const { TwitterApi } = require('twitter-api-v2');
+const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -19,60 +19,59 @@ const question = QUESTIONS[daysSinceEpoch % QUESTIONS.length];
 const LABELS = ['A', 'B', 'C', 'D'];
 const SITE_URL = 'https://takakoseki.github.io/koseki-clinic/flashcard/';
 
-// ツイート本文を生成（140字制限を考慮して日本語は短めに）
-function buildMainTweet(q) {
+function buildQuestionText(q) {
   const choicesText = q.choices.map((c, i) => `${LABELS[i]}. ${c}`).join('\n');
-  const header = `📚【今日の保育士試験1問】\n【${q.subject}】\n`;
-  const footer = `\n\n答えは↓のリプライ！\n#保育士試験 #保育士勉強垢 #保育士試験2026`;
-
-  // 問題文が長い場合は省略（日本語140字目安）
-  let questionText = q.question;
-  const baseLen = header.length + choicesText.length + footer.length;
-  if (baseLen + questionText.length > 220) {
-    questionText = questionText.slice(0, 220 - baseLen - 3) + '…';
-  }
-
-  return header + questionText + '\n\n' + choicesText + footer;
+  return `【${q.subject}】\n${q.question}\n\n${choicesText}`;
 }
 
-function buildReplyTweet(q) {
+function buildAnswerText(q) {
   const correctLabel = LABELS[q.answer];
   const correctText = q.choices[q.answer];
-  const header = `✅ 正解：${correctLabel}. ${correctText}\n\n【解説】\n`;
-  const footer = `\n\n📝 全300問無料で練習！\n${SITE_URL}`;
-
-  let explanation = q.explanation;
-  if (header.length + explanation.length + footer.length > 270) {
-    explanation = explanation.slice(0, 270 - header.length - footer.length - 3) + '…';
-  }
-
-  return header + explanation + footer;
+  return `正解：${correctLabel}. ${correctText}\n\n【解説】\n${q.explanation}\n\n📝 全300問無料で練習！\n${SITE_URL}`;
 }
 
 async function main() {
-  const client = new TwitterApi({
-    appKey: process.env.TWITTER_API_KEY,
-    appSecret: process.env.TWITTER_API_SECRET,
-    accessToken: process.env.TWITTER_ACCESS_TOKEN,
-    accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
   });
 
-  const mainText = buildMainTweet(question);
-  const replyText = buildReplyTweet(question);
+  const today = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  const questionText = buildQuestionText(question);
+  const answerText = buildAnswerText(question);
 
-  console.log('--- 問題ツイート ---');
-  console.log(mainText);
-  console.log('\n--- 解説リプライ ---');
-  console.log(replyText);
+  const htmlBody = `
+<h2>📚 今日の保育士試験1問（${today}）</h2>
+<pre style="font-family:sans-serif;font-size:15px;line-height:1.8;">${questionText}</pre>
+<hr>
+<h3>✅ 解答・解説</h3>
+<pre style="font-family:sans-serif;font-size:15px;line-height:1.8;">${answerText}</pre>
+`;
 
-  const { data: mainTweet } = await client.v2.tweet(mainText);
-  console.log('\n✅ 問題ツイート投稿完了:', mainTweet.id);
+  const textBody = `今日の保育士試験1問（${today}）\n\n${questionText}\n\n---\n\n${answerText}`;
 
-  await client.v2.reply(replyText, mainTweet.id);
-  console.log('✅ 解説リプライ投稿完了');
+  const mailOptions = {
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: process.env.MAIL_TO,
+    subject: `📚【今日の保育士試験1問】${today}／${question.subject}`,
+    text: textBody,
+    html: htmlBody,
+  };
+
+  console.log('--- 送信内容 ---');
+  console.log('件名:', mailOptions.subject);
+  console.log(textBody);
+
+  await transporter.sendMail(mailOptions);
+  console.log('\n✅ メール送信完了');
 }
 
 main().catch((err) => {
-  console.error('投稿エラー:', err);
+  console.error('送信エラー:', err);
   process.exit(1);
 });
