@@ -55,8 +55,12 @@
   // Subject buttons
   document.querySelectorAll('.subject-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.subject-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.subject-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
       state.selectedSubject = btn.dataset.subject;
     });
   });
@@ -130,6 +134,7 @@
       textSpan.textContent = text;
       btn.appendChild(labelSpan);
       btn.appendChild(textSpan);
+      btn.setAttribute('aria-label', labels[i] + '. ' + text);
       btn.addEventListener('click', () => onAnswer(i));
       choicesEl.appendChild(btn);
     });
@@ -147,8 +152,13 @@
     const btns = document.querySelectorAll('.choice-btn');
     btns.forEach((btn, i) => {
       btn.disabled = true;
-      if (i === q.answer) btn.classList.add('correct');
-      else if (i === choiceIndex && !isCorrect) btn.classList.add('wrong');
+      if (i === q.answer) {
+        btn.classList.add('correct');
+        btn.setAttribute('aria-label', btn.getAttribute('aria-label') + '（正解）');
+      } else if (i === choiceIndex && !isCorrect) {
+        btn.classList.add('wrong');
+        btn.setAttribute('aria-label', btn.getAttribute('aria-label') + '（不正解）');
+      }
     });
 
     // Update history
