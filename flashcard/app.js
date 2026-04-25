@@ -123,7 +123,13 @@
     q.choices.forEach((text, i) => {
       const btn = document.createElement('button');
       btn.className = 'choice-btn';
-      btn.innerHTML = '<span class="choice-label">' + labels[i] + '</span><span>' + text + '</span>';
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'choice-label';
+      labelSpan.textContent = labels[i];
+      const textSpan = document.createElement('span');
+      textSpan.textContent = text;
+      btn.appendChild(labelSpan);
+      btn.appendChild(textSpan);
       btn.addEventListener('click', () => onAnswer(i));
       choicesEl.appendChild(btn);
     });
@@ -203,9 +209,17 @@
     const wrongList = document.getElementById('wrong-list');
     if (state.sessionWrong.length > 0) {
       wrongWrap.style.display = 'block';
-      wrongList.innerHTML = state.sessionWrong.map(q =>
-        '<div class="wrong-item"><div class="wrong-item-subject">' + q.subject + '</div>' + q.question + '</div>'
-      ).join('');
+      wrongList.innerHTML = '';
+      state.sessionWrong.forEach(q => {
+        const item = document.createElement('div');
+        item.className = 'wrong-item';
+        const subjectDiv = document.createElement('div');
+        subjectDiv.className = 'wrong-item-subject';
+        subjectDiv.textContent = q.subject;
+        item.appendChild(subjectDiv);
+        item.appendChild(document.createTextNode(q.question));
+        wrongList.appendChild(item);
+      });
     } else {
       wrongWrap.style.display = 'none';
     }
