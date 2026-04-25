@@ -263,6 +263,10 @@
   document.getElementById('btn-report-send').addEventListener('click', async () => {
     const q = state.queue[state.current];
     const note = document.getElementById('report-textarea').value.trim();
+    if (note.length > 500) {
+      alert('報告内容は500文字以内で入力してください。');
+      return;
+    }
     const sendBtn = document.getElementById('btn-report-send');
 
     sendBtn.disabled = true;
