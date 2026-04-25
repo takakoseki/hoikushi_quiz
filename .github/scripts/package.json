@@ -2,6 +2,6 @@
   "name": "daily-tweet",
   "version": "1.0.0",
   "dependencies": {
-    "twitter-api-v2": "^1.17.0"
+    "nodemailer": "^6.9.0"
   }
 }
