@@ -63,12 +63,8 @@ async function main() {
     html: htmlBody,
   };
 
-  console.log('--- 送信内容 ---');
-  console.log('件名:', mailOptions.subject);
-  console.log(textBody);
-
   await transporter.sendMail(mailOptions);
-  console.log('\n✅ メール送信完了');
+  console.log('✅ メール送信完了');
 }
 
 main().catch((err) => {
