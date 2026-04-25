@@ -32,12 +32,12 @@ function buildAnswerText(q) {
 
 async function main() {
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      user: process.env.NOTIFY_GMAIL_USER,
+      pass: process.env.NOTIFY_GMAIL_APP_PASSWORD,
     },
   });
 
@@ -56,8 +56,8 @@ async function main() {
   const textBody = `今日の保育士試験1問（${today}）\n\n${questionText}\n\n---\n\n${answerText}`;
 
   const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: process.env.MAIL_TO,
+    from: process.env.NOTIFY_GMAIL_USER,
+    to: process.env.NOTIFY_EMAIL_TO,
     subject: `📚【今日の保育士試験1問】${today}／${question.subject}`,
     text: textBody,
     html: htmlBody,
