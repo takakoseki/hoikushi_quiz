@@ -459,6 +459,13 @@ body {
   cursor: pointer;
   text-decoration: underline;
 }
+.footer-privacy-link {
+  display: inline-block;
+  margin-left: 16px;
+  font-size: 0.75rem;
+  color: var(--c-text-sub);
+  text-decoration: underline;
+}
 
 /* ===== MODALS ===== */
 .modal-overlay {
