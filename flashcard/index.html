@@ -1,9 +1,39 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PJWRNL05FL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-PJWRNL05FL');
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>保育士試験 一問一答</title>
+  <title>保育士試験 一問一答｜全300問無料で学習</title>
+
+  <!-- SEO -->
+  <meta name="description" content="保育士試験の一問一答学習アプリ。全9科目・300問を無料で学習できます。4択形式で隙間時間に効率よく対策できます。">
+  <meta name="keywords" content="保育士試験,一問一答,問題集,無料,勉強,対策,保育原理,教育原理,社会福祉,子ども家庭福祉">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://hoikushi-quiz.com/flashcard/">
+
+  <!-- OGP -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hoikushi-quiz.com/flashcard/">
+  <meta property="og:title" content="保育士試験 一問一答｜全300問無料で学習">
+  <meta property="og:description" content="保育士試験の一問一答学習アプリ。全9科目・300問を無料で学習できます。4択形式で隙間時間に効率よく対策。">
+  <meta property="og:image" content="https://hoikushi-quiz.com/flashcard/ogp.png">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:site_name" content="保育士試験 一問一答">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="保育士試験 一問一答｜全300問無料で学習">
+  <meta name="twitter:description" content="保育士試験の一問一答学習アプリ。全9科目・300問を無料で学習できます。4択形式で隙間時間に効率よく対策。">
+  <meta name="twitter:image" content="https://hoikushi-quiz.com/flashcard/ogp.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
@@ -22,16 +52,16 @@
       <section class="subject-section">
         <h2>科目を選択</h2>
         <div class="subject-grid">
-          <button class="subject-btn active" data-subject="all">全科目</button>
-          <button class="subject-btn" data-subject="保育原理">保育原理</button>
-          <button class="subject-btn" data-subject="教育原理">教育原理</button>
-          <button class="subject-btn" data-subject="社会福祉">社会福祉</button>
-          <button class="subject-btn" data-subject="子ども家庭福祉">子ども家庭福祉</button>
-          <button class="subject-btn" data-subject="社会的養護">社会的養護</button>
-          <button class="subject-btn" data-subject="保育の心理学">保育の心理学</button>
-          <button class="subject-btn" data-subject="子どもの保健">子どもの保健</button>
-          <button class="subject-btn" data-subject="子どもの食と栄養">子どもの食と栄養</button>
-          <button class="subject-btn" data-subject="保育実習理論">保育実習理論</button>
+          <button class="subject-btn active" data-subject="all" aria-pressed="true">全科目</button>
+          <button class="subject-btn" data-subject="保育原理" aria-pressed="false">保育原理</button>
+          <button class="subject-btn" data-subject="教育原理" aria-pressed="false">教育原理</button>
+          <button class="subject-btn" data-subject="社会福祉" aria-pressed="false">社会福祉</button>
+          <button class="subject-btn" data-subject="子ども家庭福祉" aria-pressed="false">子ども家庭福祉</button>
+          <button class="subject-btn" data-subject="社会的養護" aria-pressed="false">社会的養護</button>
+          <button class="subject-btn" data-subject="保育の心理学" aria-pressed="false">保育の心理学</button>
+          <button class="subject-btn" data-subject="子どもの保健" aria-pressed="false">子どもの保健</button>
+          <button class="subject-btn" data-subject="子どもの食と栄養" aria-pressed="false">子どもの食と栄養</button>
+          <button class="subject-btn" data-subject="保育実習理論" aria-pressed="false">保育実習理論</button>
         </div>
       </section>
 
@@ -67,7 +97,7 @@
       <button class="btn-back" id="btn-back">← 戻る</button>
       <div class="quiz-meta">
         <span class="quiz-subject" id="quiz-subject-label"></span>
-        <span class="quiz-progress" id="quiz-progress">1 / 10</span>
+        <span class="quiz-progress" id="quiz-progress" aria-live="polite" aria-atomic="true">1 / 10</span>
       </div>
     </div>
     <div class="progress-bar-wrap">
@@ -79,7 +109,7 @@
         <div class="card-question" id="card-question"></div>
         <div class="choices" id="choices"></div>
         <div class="card-answer hidden" id="card-answer">
-          <div class="answer-badge" id="answer-badge"></div>
+          <div class="answer-badge" id="answer-badge" role="status" aria-live="assertive"></div>
           <div class="answer-correct-label">正解：<span id="answer-correct-text"></span></div>
           <div class="answer-explanation" id="answer-explanation"></div>
           <button class="btn-next" id="btn-next">次の問題 →</button>
@@ -122,6 +152,7 @@
   <!-- FOOTER (start screen only, shown via JS) -->
   <footer class="app-footer" id="app-footer">
     <button class="btn-disclaimer" id="btn-disclaimer">免責事項</button>
+    <a class="footer-privacy-link" href="./privacy.html">プライバシーポリシー</a>
   </footer>
 
   <!-- DISCLAIMER MODAL -->
@@ -144,7 +175,7 @@
       <div class="modal-body">
         <p class="report-question-preview" id="report-question-preview"></p>
         <label class="report-label">誤りの内容（任意）</label>
-        <textarea class="report-textarea" id="report-textarea" placeholder="例：選択肢Bの説明が正しくないと思います"></textarea>
+        <textarea class="report-textarea" id="report-textarea" placeholder="例：選択肢Bの説明が正しくないと思います" maxlength="500"></textarea>
       </div>
       <div class="modal-actions">
         <button class="btn-primary" id="btn-report-send">報告する</button>
@@ -153,7 +184,7 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.104.1"></script>
   <script src="questions.js"></script>
   <script src="app.js"></script>
 </body>
