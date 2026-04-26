@@ -237,11 +237,15 @@
     const reviewWrongBtn = document.getElementById('btn-review-wrong');
     reviewWrongBtn.style.display = state.sessionWrong.length > 0 ? 'block' : 'none';
 
+    const tweetText = `保育士試験 一問一答で ${correct}/${total} 問正解（${rate}%）しました！\n#保育士試験 #保育士勉強\nhttps://hoikushi-quiz.com/flashcard/`;
+    document.getElementById('btn-twitter-share').onclick = () =>
+      window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText), '_blank', 'width=550,height=420,noopener,noreferrer');
+
     showScreen('screen-result');
   }
 
   function comment(rate) {
-    if (rate === 100) return '完璧です！素晴らしい！';
+    if (rate === 100) return '完璚です！素晴らしい！';
     if (rate >= 80) return 'とても良くできました！';
     if (rate >= 60) return 'もう少しで合格ライン！引き続き頑張りましょう。';
     if (rate >= 40) return '復習してもう一度チャレンジしましょう。';
