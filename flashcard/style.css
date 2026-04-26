@@ -395,6 +395,23 @@ body {
 
 .result-actions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
 
+.btn-twitter-share {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 0.2s;
+}
+.btn-twitter-share:hover { background: #333; }
+
 .wrong-list-wrap {
   text-align: left;
   background: var(--c-surface);
