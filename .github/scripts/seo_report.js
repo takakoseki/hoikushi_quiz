@@ -2,6 +2,7 @@
 
 const { google } = require('googleapis');
 const https = require('https');
+const nodemailer = require('nodemailer');
 
 const CLIENT_ID       = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET   = process.env.GOOGLE_CLIENT_SECRET;
@@ -93,6 +94,71 @@ function createIssue(title, body) {
     req.on('error', reject);
     req.write(data);
     req.end();
+  });
+}
+
+async function sendEmail(today, totalImpressions, totalClicks, avgCtr, avgPosition, totalSessions, ga4Rows, lowCtr, opportunity, issueBody) {
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.NOTIFY_GMAIL_USER,
+      pass: process.env.NOTIFY_GMAIL_APP_PASSWORD,
+    },
+  });
+
+  const channelRows = ga4Rows.map(r =>
+    `<tr><td style="padding:4px 8px;">${r.channel}</td><td style="padding:4px 8px;text-align:right;">${r.sessions}</td></tr>`
+  ).join('');
+
+  const lowCtrRows = lowCtr.map(r =>
+    `<tr><td style="padding:4px 8px;">${r.keys[0]}</td><td style="padding:4px 8px;text-align:right;">${r.impressions}</td><td style="padding:4px 8px;text-align:right;">${(r.ctr*100).toFixed(1)}%</td><td style="padding:4px 8px;text-align:right;">${r.position.toFixed(1)}位</td></tr>`
+  ).join('');
+
+  const opportunityRows = opportunity.map(r =>
+    `<tr><td style="padding:4px 8px;">${r.keys[0]}</td><td style="padding:4px 8px;text-align:right;">${r.position.toFixed(1)}位</td><td style="padding:4px 8px;text-align:right;">${r.impressions}</td></tr>`
+  ).join('');
+
+  const html = `
+<h2>📊 週次SEOレポート（${today}）</h2>
+
+<h3>検索流入（GSC）</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;"><th style="padding:4px 8px;">表示回数</th><th style="padding:4px 8px;">クリック数</th><th style="padding:4px 8px;">平均CTR</th><th style="padding:4px 8px;">平均順位</th></tr>
+  <tr><td style="padding:4px 8px;text-align:right;">${totalImpressions}</td><td style="padding:4px 8px;text-align:right;">${totalClicks}</td><td style="padding:4px 8px;text-align:right;">${avgCtr}%</td><td style="padding:4px 8px;text-align:right;">${avgPosition}位</td></tr>
+</table>
+
+<h3>アクセス（GA4）・流入元内訳</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;"><th style="padding:4px 8px;">チャネル</th><th style="padding:4px 8px;">セッション</th></tr>
+  ${channelRows || '<tr><td colspan="2" style="padding:4px 8px;">データなし</td></tr>'}
+</table>
+
+${lowCtr.length > 0 ? `
+<h3>🔴 要対応：CTRが低いクエリ</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#fdd;"><th style="padding:4px 8px;">クエリ</th><th style="padding:4px 8px;">表示回数</th><th style="padding:4px 8px;">CTR</th><th style="padding:4px 8px;">順位</th></tr>
+  ${lowCtrRows}
+</table>` : ''}
+
+${opportunity.length > 0 ? `
+<h3>🟡 チャンス：順位5〜20位のクエリ</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#ffe;"><th style="padding:4px 8px;">クエリ</th><th style="padding:4px 8px;">順位</th><th style="padding:4px 8px;">表示回数</th></tr>
+  ${opportunityRows}
+</table>` : ''}
+
+<hr>
+<p style="font-size:12px;color:#666;">詳細はGitHub Issueを確認してください。</p>
+`;
+
+  await transporter.sendMail({
+    from: process.env.NOTIFY_GMAIL_USER,
+    to: process.env.NOTIFY_EMAIL_TO,
+    subject: `📊【週次SEOレポート】${today}`,
+    html,
+    text: issueBody,
   });
 }
 
@@ -206,8 +272,12 @@ async function main() {
   lines.push('- [ ] 🟡 チャンスクエリをXで重点的に発信する');
   lines.push('- [ ] 流入元を確認し、弱いチャネルへの施策を検討する');
 
-  await createIssue(`[SEOレポート] ${today}`, lines.join('\n'));
+  const issueBody = lines.join('\n');
+  await createIssue(`[SEOレポート] ${today}`, issueBody);
   console.log('✅ SEOレポートIssue作成完了');
+
+  await sendEmail(today, totalImpressions, totalClicks, avgCtr, avgPosition, totalSessions, ga4Rows, lowCtr, opportunity, issueBody);
+  console.log('✅ SEOレポートメール送信完了');
 }
 
 main().catch(err => {
