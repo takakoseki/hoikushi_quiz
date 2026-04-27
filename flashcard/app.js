@@ -197,6 +197,26 @@
     }
   });
 
+  // ---- Subject hashtag map ----
+  const SUBJECT_HASHTAGS = {
+    '保育原理':    '#保育原理',
+    '教育原理':    '#教育原理',
+    '社会福祉':    '#社会福祉',
+    '子ども家庭福祉': '#子ども家庭福祉',
+    '社会的養護':  '#社会的養護',
+    '保育の心理学': '#保育の心理学',
+    '子どもの保健': '#子どもの保健',
+    '子どもの食と栄養': '#子どもの食と栄養',
+    '保育実習理論': '#保育実習理論',
+  };
+
+  function scoreEmoji(rate) {
+    if (rate === 100) return '🏆 満点達成！';
+    if (rate >= 80)  return '🌟 好成績！';
+    if (rate >= 60)  return '📚 合格ライン突破！';
+    return '💪 目指せ合格！';
+  }
+
   // ---- Result ----
   function showResult() {
     const total = state.queue.length;
@@ -237,7 +257,12 @@
     const reviewWrongBtn = document.getElementById('btn-review-wrong');
     reviewWrongBtn.style.display = state.sessionWrong.length > 0 ? 'block' : 'none';
 
-    const tweetText = `保育士試験 一問一答で ${correct}/${total} 問正解（${rate}%）しました！\n#保育士試験 #保育士勉強\nhttps://hoikushi-quiz.com/flashcard/`;
+    const subjectLabel = state.selectedSubject === 'all' ? '全科目' : state.selectedSubject;
+    const subjectTag = state.selectedSubject !== 'all' && SUBJECT_HASHTAGS[state.selectedSubject]
+      ? ' ' + SUBJECT_HASHTAGS[state.selectedSubject]
+      : '';
+    const shareUrl = 'https://hoikushi-quiz.com/flashcard/?utm_source=twitter&utm_medium=social&utm_campaign=score_share';
+    const tweetText = `保育士試験【${subjectLabel}】${correct}/${total}問正解（${rate}%）${scoreEmoji(rate)}\n#保育士試験 #保育士勉強${subjectTag}\n${shareUrl}`;
     document.getElementById('btn-twitter-share').onclick = () =>
       window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText), '_blank', 'width=550,height=420,noopener,noreferrer');
 
