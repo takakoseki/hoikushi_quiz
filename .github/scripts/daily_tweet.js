@@ -18,6 +18,11 @@ const question = QUESTIONS[daysSinceEpoch % QUESTIONS.length];
 
 const LABELS = ['A', 'B', 'C', 'D'];
 const SITE_URL = 'https://hoikushi-quiz.com/flashcard/';
+const X_URL = 'https://hoikushi-quiz.com/flashcard/?utm_source=twitter&utm_medium=social&utm_campaign=daily_question';
+
+function truncate(text, max) {
+  return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
 
 function buildQuestionText(q) {
   const choicesText = q.choices.map((c, i) => `${LABELS[i]}. ${c}`).join('\n');
@@ -28,6 +33,20 @@ function buildAnswerText(q) {
   const correctLabel = LABELS[q.answer];
   const correctText = q.choices[q.answer];
   return `正解：${correctLabel}. ${correctText}\n\n【解説】\n${q.explanation}\n\n📝 全300問無料で練習！\n${SITE_URL}`;
+}
+
+// X（Twitter）に手動投稿するためのツイート文を生成
+function buildXPostText(q) {
+  const questionBody = truncate(q.question, 70);
+  const choices = q.choices.map((c, i) => `${LABELS[i]}. ${truncate(c, 22)}`).join('\n');
+  const tweet1 = `【今日の保育士試験1問】\n【${q.subject}】\n${questionBody}\n\n${choices}\n\n#保育士試験 #保育士勉強`;
+
+  const correctLabel = LABELS[q.answer];
+  const correctText = truncate(q.choices[q.answer], 30);
+  const explanation = truncate(q.explanation, 110);
+  const tweet2 = `✅ 正解：${correctLabel}. ${correctText}\n\n📖 ${explanation}\n\n📝 全300問無料で練習！\n${X_URL}`;
+
+  return { tweet1, tweet2 };
 }
 
 async function main() {
@@ -44,6 +63,16 @@ async function main() {
   const today = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
   const questionText = buildQuestionText(question);
   const answerText = buildAnswerText(question);
+  const { tweet1, tweet2 } = buildXPostText(question);
+
+  const xSection = `
+<hr>
+<h3>🐦 本日のXポスト用テキスト（コピペして投稿してください）</h3>
+<p style="color:#666;font-size:13px;">① 問題ツイート（スレッド1件目）</p>
+<pre style="background:#f0f8ff;border:1px solid #1d9bf0;border-radius:8px;padding:12px;font-family:sans-serif;font-size:14px;line-height:1.8;white-space:pre-wrap;">${tweet1}</pre>
+<p style="color:#666;font-size:13px;">② 解答ツイート（スレッド2件目 — ①にリプライ）</p>
+<pre style="background:#f0f8ff;border:1px solid #1d9bf0;border-radius:8px;padding:12px;font-family:sans-serif;font-size:14px;line-height:1.8;white-space:pre-wrap;">${tweet2}</pre>
+`;
 
   const htmlBody = `
 <h2>📚 今日の保育士試験1問（${today}）</h2>
@@ -51,9 +80,10 @@ async function main() {
 <hr>
 <h3>✅ 解答・解説</h3>
 <pre style="font-family:sans-serif;font-size:15px;line-height:1.8;">${answerText}</pre>
+${xSection}
 `;
 
-  const textBody = `今日の保育士試験1問（${today})\n\n${questionText}\n\n---\n\n${answerText}`;
+  const textBody = `今日の保育士試験1問（${today})\n\n${questionText}\n\n---\n\n${answerText}\n\n---\n\n【Xポスト用①（問題）】\n${tweet1}\n\n【Xポスト用②（解答・リプライ）】\n${tweet2}`;
 
   const mailOptions = {
     from: process.env.NOTIFY_GMAIL_USER,

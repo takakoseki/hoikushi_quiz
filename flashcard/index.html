@@ -100,6 +100,11 @@
             <span class="stat-label">正答率</span>
           </div>
         </div>
+        <div class="streak-display" id="streak-display" style="display:none">
+          <span class="streak-icon">🔥</span>
+          <span class="streak-count" id="streak-count">0</span>
+          <span class="streak-label">日連続学習中</span>
+        </div>
         <button class="btn-ghost" id="btn-clear-history">履歴をリセット</button>
       </section>
 
@@ -154,6 +159,11 @@
       </div>
       <p class="score-rate" id="score-rate"></p>
       <p class="score-comment" id="score-comment"></p>
+
+      <div class="milestone-share" id="milestone-share" style="display:none">
+        <p class="milestone-message" id="milestone-message"></p>
+        <button class="btn-twitter-milestone" id="btn-twitter-milestone">𝕏 この達成をシェア</button>
+      </div>
 
       <div class="result-actions">
         <button class="btn-primary" id="btn-retry">もう一度</button>
