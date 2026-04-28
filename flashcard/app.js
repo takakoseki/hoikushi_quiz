@@ -6,6 +6,42 @@
 
   const QUIZ_COUNT = 10;
   const STORAGE_KEY = 'hoikushi_quiz_history';
+  const STREAK_MILESTONES = new Set([3, 7, 14, 30, 50, 100]);
+  const MILESTONE_SHARE_URL = 'https://hoikushi-quiz.com/flashcard/?utm_source=twitter&utm_medium=social&utm_campaign=milestone_share';
+
+  // ---- Date utilities (JST) ----
+  function getTodayJST() {
+    return new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  }
+  function getYesterdayJST() {
+    return new Date(Date.now() - 86400000).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  }
+
+  // ---- Streak utilities ----
+  function getEffectiveStreak(history) {
+    const last = history.lastSessionDate;
+    if (!last) return 0;
+    if (last === getTodayJST() || last === getYesterdayJST()) return history.streak || 0;
+    return 0;
+  }
+
+  function updateStreakInPlace(history) {
+    const today = getTodayJST();
+    const yesterday = getYesterdayJST();
+    if (history.lastSessionDate === today) return; // already counted today
+    history.streak = (history.lastSessionDate === yesterday) ? (history.streak || 0) + 1 : 1;
+    history.lastSessionDate = today;
+    history.bestStreak = Math.max(history.bestStreak || 0, history.streak);
+  }
+
+  function milestoneShareText(type, value) {
+    if (type === 'streak') {
+      const fire = value >= 30 ? '🔥🔥🔥' : value >= 7 ? '🔥🔥' : '🔥';
+      return `保育士試験の勉強を${value}日連続で継続中${fire}\nコツコツ積み重ねて合格を目指します！\n#保育士試験 #保育士勉強 #保育士試験勉強垢\n${MILESTONE_SHARE_URL}`;
+    }
+    const label = value === 'all' ? '全科目' : value;
+    return `保育士試験【${label}】で満点（10/10）達成🏆\n#保育士試験 #保育士勉強\n${MILESTONE_SHARE_URL}`;
+  }
 
   // ---- Supabase ----
   const { createClient } = supabase;
@@ -50,6 +86,15 @@
 
     const reviewBtn = document.getElementById('btn-review');
     reviewBtn.style.display = history.wrong && history.wrong.length > 0 ? 'block' : 'none';
+
+    const streak = getEffectiveStreak(history);
+    const streakEl = document.getElementById('streak-display');
+    if (streak > 0) {
+      document.getElementById('streak-count').textContent = streak;
+      streakEl.style.display = 'flex';
+    } else {
+      streakEl.style.display = 'none';
+    }
   }
 
   // Subject buttons
@@ -265,6 +310,35 @@
     const tweetText = `保育士試験【${subjectLabel}】${correct}/${total}問正解（${rate}%）${scoreEmoji(rate)}\n#保育士試験 #保育士勉強${subjectTag}\n${shareUrl}`;
     document.getElementById('btn-twitter-share').onclick = () =>
       window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText), '_blank', 'width=550,height=420,noopener,noreferrer');
+
+    // ---- Streak update & milestone ----
+    const historyForStreak = loadHistory();
+    const isNewSessionToday = historyForStreak.lastSessionDate !== getTodayJST();
+    updateStreakInPlace(historyForStreak);
+    saveHistory(historyForStreak);
+
+    let milestoneType = null;
+    let milestoneValue = null;
+    if (correct === total) {
+      milestoneType = 'perfect';
+      milestoneValue = state.selectedSubject;
+    } else if (isNewSessionToday && STREAK_MILESTONES.has(historyForStreak.streak)) {
+      milestoneType = 'streak';
+      milestoneValue = historyForStreak.streak;
+    }
+
+    const milestoneWrap = document.getElementById('milestone-share');
+    if (milestoneType) {
+      document.getElementById('milestone-message').textContent =
+        milestoneType === 'perfect' ? `🏆 満点達成！おめでとうございます！` : `🔥 ${milestoneValue}日連続学習達成！`;
+      document.getElementById('btn-twitter-milestone').onclick = () => {
+        const text = milestoneShareText(milestoneType, milestoneValue);
+        window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank', 'width=550,height=420,noopener,noreferrer');
+      };
+      milestoneWrap.style.display = 'block';
+    } else {
+      milestoneWrap.style.display = 'none';
+    }
 
     showScreen('screen-result');
   }

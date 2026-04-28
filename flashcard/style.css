@@ -559,6 +559,61 @@ body {
 }
 .modal-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 
+/* ===== STREAK DISPLAY ===== */
+.streak-display {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--c-surface);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.streak-icon { font-size: 1.4rem; line-height: 1; }
+.streak-count {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--c-primary);
+  line-height: 1;
+}
+.streak-label {
+  font-size: 0.85rem;
+  color: var(--c-text-sub);
+  font-weight: 500;
+}
+
+/* ===== MILESTONE SHARE ===== */
+.milestone-share {
+  background: linear-gradient(135deg, #fff9e6, #fff3cc);
+  border: 2px solid var(--c-accent);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.milestone-message {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--c-accent);
+  margin-bottom: 12px;
+}
+.btn-twitter-milestone {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 0.2s;
+}
+.btn-twitter-milestone:hover { background: #333; }
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 480px) {
   .app-title { font-size: 1.5rem; }
