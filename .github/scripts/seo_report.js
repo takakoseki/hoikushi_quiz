@@ -18,7 +18,21 @@ function dateStr(daysAgo) {
   return d.toISOString().split('T')[0];
 }
 
-async function fetchGSC(auth, startDate, endDate) {
+function diffLabel(current, prev) {
+  if (prev === 0 && current === 0) return '–';
+  if (prev === 0) return `▲${current}`;
+  const diff = current - prev;
+  const pct = Math.round(diff / prev * 100);
+  if (diff > 0) return `▲${diff} (+${pct}%)`;
+  if (diff < 0) return `▼${Math.abs(diff)} (${pct}%)`;
+  return `→0 (0%)`;
+}
+
+function shortUrl(url) {
+  return url.replace(/^https?:\/\/[^/]+/, '') || '/';
+}
+
+async function fetchGSCByQuery(auth, startDate, endDate) {
   const webmasters = google.webmasters({ version: 'v3', auth });
   try {
     const res = await webmasters.searchanalytics.query({
@@ -27,12 +41,31 @@ async function fetchGSC(auth, startDate, endDate) {
         startDate,
         endDate,
         dimensions: ['query'],
-        rowLimit: 50,
+        rowLimit: 100,
       },
     });
     return res.data.rows || [];
   } catch (e) {
-    console.error('GSC error:', e.message);
+    console.error('GSC query error:', e.message);
+    return [];
+  }
+}
+
+async function fetchGSCByPage(auth, startDate, endDate) {
+  const webmasters = google.webmasters({ version: 'v3', auth });
+  try {
+    const res = await webmasters.searchanalytics.query({
+      siteUrl: GSC_SITE_URL,
+      requestBody: {
+        startDate,
+        endDate,
+        dimensions: ['page'],
+        rowLimit: 20,
+      },
+    });
+    return res.data.rows || [];
+  } catch (e) {
+    console.error('GSC page error:', e.message);
     return [];
   }
 }
@@ -97,7 +130,9 @@ function createIssue(title, body) {
   });
 }
 
-async function sendEmail(today, totalImpressions, totalClicks, avgCtr, avgPosition, totalSessions, ga4Rows, lowCtr, opportunity, issueBody) {
+async function sendEmail(reportData, issueBody) {
+  const { today, curr, prev, ga4Rows, topPages, lowCtr, opportunity } = reportData;
+
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
@@ -108,45 +143,66 @@ async function sendEmail(today, totalImpressions, totalClicks, avgCtr, avgPositi
     },
   });
 
-  const channelRows = ga4Rows.map(r =>
-    `<tr><td style="padding:4px 8px;">${r.channel}</td><td style="padding:4px 8px;text-align:right;">${r.sessions}</td></tr>`
+  const td = (v) => `<td style="padding:4px 8px;text-align:right;">${v}</td>`;
+  const th = (v) => `<th style="padding:4px 8px;">${v}</th>`;
+  const tdl = (v) => `<td style="padding:4px 8px;">${v}</td>`;
+
+  const summaryHtml = `
+    <tr>${tdl('表示回数')}${td(curr.impressions)}${td(prev.impressions)}${td(diffLabel(curr.impressions, prev.impressions))}</tr>
+    <tr>${tdl('クリック数')}${td(curr.clicks)}${td(prev.clicks)}${td(diffLabel(curr.clicks, prev.clicks))}</tr>
+    <tr>${tdl('平均CTR')}${td(curr.ctr + '%')}${td(prev.ctr + '%')}${td('–')}</tr>
+    <tr>${tdl('平均順位')}${td(curr.position + '位')}${td(prev.position + '位')}${td('–')}</tr>
+    <tr>${tdl('セッション')}${td(curr.sessions)}${td(prev.sessions)}${td(diffLabel(curr.sessions, prev.sessions))}</tr>`;
+
+  const channelHtml = ga4Rows.length > 0
+    ? ga4Rows.map(r => `<tr>${tdl(r.channel)}${td(r.sessions)}</tr>`).join('')
+    : `<tr><td colspan="2" style="padding:4px 8px;">データなし</td></tr>`;
+
+  const pageHtml = topPages.length > 0
+    ? topPages.map(r => `<tr>${tdl(shortUrl(r.keys[0]))}${td(r.clicks)}${td(r.impressions)}${td((r.ctr*100).toFixed(1)+'%')}${td(r.position.toFixed(1)+'位')}</tr>`).join('')
+    : `<tr><td colspan="5" style="padding:4px 8px;">データなし</td></tr>`;
+
+  const lowCtrHtml = lowCtr.map(r =>
+    `<tr>${tdl(r.keys[0])}${td(r.impressions)}${td((r.ctr*100).toFixed(1)+'%')}${td(r.position.toFixed(1)+'位')}</tr>`
   ).join('');
 
-  const lowCtrRows = lowCtr.map(r =>
-    `<tr><td style="padding:4px 8px;">${r.keys[0]}</td><td style="padding:4px 8px;text-align:right;">${r.impressions}</td><td style="padding:4px 8px;text-align:right;">${(r.ctr*100).toFixed(1)}%</td><td style="padding:4px 8px;text-align:right;">${r.position.toFixed(1)}位</td></tr>`
-  ).join('');
-
-  const opportunityRows = opportunity.map(r =>
-    `<tr><td style="padding:4px 8px;">${r.keys[0]}</td><td style="padding:4px 8px;text-align:right;">${r.position.toFixed(1)}位</td><td style="padding:4px 8px;text-align:right;">${r.impressions}</td></tr>`
+  const opportunityHtml = opportunity.map(r =>
+    `<tr>${tdl(r.keys[0])}${td(r.position.toFixed(1)+'位')}${td(r.impressions)}</tr>`
   ).join('');
 
   const html = `
 <h2>📊 週次SEOレポート（${today}）</h2>
 
-<h3>検索流入（GSC）</h3>
+<h3>📈 今週 vs 先週</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#f0f0f0;"><th style="padding:4px 8px;">表示回数</th><th style="padding:4px 8px;">クリック数</th><th style="padding:4px 8px;">平均CTR</th><th style="padding:4px 8px;">平均順位</th></tr>
-  <tr><td style="padding:4px 8px;text-align:right;">${totalImpressions}</td><td style="padding:4px 8px;text-align:right;">${totalClicks}</td><td style="padding:4px 8px;text-align:right;">${avgCtr}%</td><td style="padding:4px 8px;text-align:right;">${avgPosition}位</td></tr>
+  <tr style="background:#f0f0f0;">${th('指標')}${th('今週')}${th('先週')}${th('前週比')}</tr>
+  ${summaryHtml}
 </table>
 
-<h3>アクセス（GA4）・流入元内訳</h3>
+<h3>流入元内訳（GA4）</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#f0f0f0;"><th style="padding:4px 8px;">チャネル</th><th style="padding:4px 8px;">セッション</th></tr>
-  ${channelRows || '<tr><td colspan="2" style="padding:4px 8px;">データなし</td></tr>'}
+  <tr style="background:#f0f0f0;">${th('チャネル')}${th('セッション')}</tr>
+  ${channelHtml}
+</table>
+
+<h3>📄 ページ別パフォーマンス（GSC）</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('ページ')}${th('クリック')}${th('表示')}${th('CTR')}${th('順位')}</tr>
+  ${pageHtml}
 </table>
 
 ${lowCtr.length > 0 ? `
 <h3>🔴 要対応：CTRが低いクエリ</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#fdd;"><th style="padding:4px 8px;">クエリ</th><th style="padding:4px 8px;">表示回数</th><th style="padding:4px 8px;">CTR</th><th style="padding:4px 8px;">順位</th></tr>
-  ${lowCtrRows}
+  <tr style="background:#fdd;">${th('クエリ')}${th('表示')}${th('CTR')}${th('順位')}</tr>
+  ${lowCtrHtml}
 </table>` : ''}
 
 ${opportunity.length > 0 ? `
 <h3>🟡 チャンス：順位5〜20位のクエリ</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#ffe;"><th style="padding:4px 8px;">クエリ</th><th style="padding:4px 8px;">順位</th><th style="padding:4px 8px;">表示回数</th></tr>
-  ${opportunityRows}
+  <tr style="background:#ffe;">${th('クエリ')}${th('順位')}${th('表示')}</tr>
+  ${opportunityHtml}
 </table>` : ''}
 
 <hr>
@@ -166,16 +222,22 @@ async function main() {
   const auth = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
   auth.setCredentials({ refresh_token: REFRESH_TOKEN });
 
-  const endDate   = dateStr(1);
-  const startDate = dateStr(7);
+  // 今週: 1〜7日前、先週: 8〜14日前
+  const endDate       = dateStr(1);
+  const startDate     = dateStr(7);
+  const prevEndDate   = dateStr(8);
+  const prevStartDate = dateStr(14);
   const today = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
-  const [gscRows, ga4Rows] = await Promise.all([
-    fetchGSC(auth, startDate, endDate),
+  const [gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows] = await Promise.all([
+    fetchGSCByQuery(auth, startDate, endDate),
     fetchGA4(auth, startDate, endDate),
+    fetchGSCByQuery(auth, prevStartDate, prevEndDate),
+    fetchGA4(auth, prevStartDate, prevEndDate),
+    fetchGSCByPage(auth, startDate, endDate),
   ]);
 
-  // GSC集計
+  // 今週 GSC 集計
   const totalImpressions = gscRows.reduce((s, r) => s + r.impressions, 0);
   const totalClicks      = gscRows.reduce((s, r) => s + r.clicks, 0);
   const avgCtr = totalImpressions > 0
@@ -183,9 +245,26 @@ async function main() {
   const avgPosition = gscRows.length > 0
     ? (gscRows.reduce((s, r) => s + r.position, 0) / gscRows.length).toFixed(1) : '-';
 
-  // GA4集計
+  // 先週 GSC 集計
+  const prevImpressions = prevGscRows.reduce((s, r) => s + r.impressions, 0);
+  const prevClicks      = prevGscRows.reduce((s, r) => s + r.clicks, 0);
+  const prevCtr = prevImpressions > 0
+    ? (prevClicks / prevImpressions * 100).toFixed(1) : '0.0';
+  const prevPosition = prevGscRows.length > 0
+    ? (prevGscRows.reduce((s, r) => s + r.position, 0) / prevGscRows.length).toFixed(1) : '-';
+
+  // 今週・先週 GA4 集計
   const totalSessions  = ga4Rows.reduce((s, r) => s + r.sessions, 0);
   const totalPageviews = ga4Rows.reduce((s, r) => s + r.pageviews, 0);
+  const prevSessions   = prevGa4Rows.reduce((s, r) => s + r.sessions, 0);
+
+  const curr = { impressions: totalImpressions, clicks: totalClicks, ctr: avgCtr, position: avgPosition, sessions: totalSessions };
+  const prev = { impressions: prevImpressions, clicks: prevClicks, ctr: prevCtr, position: prevPosition, sessions: prevSessions };
+
+  // ページ別上位（クリック数順）
+  const topPages = [...gscPageRows]
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, 10);
 
   // 分析：CTR低いクエリ（10回以上・CTR3%未満）
   const lowCtr = gscRows
@@ -204,30 +283,39 @@ async function main() {
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, 5);
 
-  // Issue本文
+  // Issue 本文
   const lines = [
     `## 📊 週次SEOレポート（${today}）`,
     `集計期間：${startDate} 〜 ${endDate}`,
     '',
-    '## 🔢 今週のサマリー',
+    '## 📈 今週 vs 先週',
     '',
-    '### 検索流入（GSC）',
-    '| 表示回数 | クリック数 | 平均CTR | 平均順位 |',
-    '|---------|-----------|--------|---------|',
-    `| ${totalImpressions} | ${totalClicks} | ${avgCtr}% | ${avgPosition}位 |`,
-    '',
-    '### アクセス（GA4）',
-    '| セッション | ページビュー |',
-    '|-----------|------------|',
-    `| ${totalSessions} | ${totalPageviews} |`,
+    '| 指標 | 今週 | 先週 | 前週比 |',
+    '|------|------|------|--------|',
+    `| 表示回数 | ${curr.impressions} | ${prev.impressions} | ${diffLabel(curr.impressions, prev.impressions)} |`,
+    `| クリック数 | ${curr.clicks} | ${prev.clicks} | ${diffLabel(curr.clicks, prev.clicks)} |`,
+    `| 平均CTR | ${curr.ctr}% | ${prev.ctr}% | – |`,
+    `| 平均順位 | ${curr.position}位 | ${prev.position}位 | – |`,
+    `| セッション | ${curr.sessions} | ${prev.sessions} | ${diffLabel(curr.sessions, prev.sessions)} |`,
     '',
   ];
 
   if (ga4Rows.length > 0) {
-    lines.push('### 流入元内訳');
+    lines.push('### 流入元内訳（GA4）');
     lines.push('| チャネル | セッション |');
     lines.push('|---------|-----------|');
     ga4Rows.forEach(r => lines.push(`| ${r.channel} | ${r.sessions} |`));
+    lines.push('');
+  }
+
+  if (topPages.length > 0) {
+    lines.push('---', '');
+    lines.push('## 📄 ページ別パフォーマンス（GSC）', '');
+    lines.push('| ページ | クリック | 表示回数 | CTR | 順位 |');
+    lines.push('|-------|--------|---------|-----|-----|');
+    topPages.forEach(r => lines.push(
+      `| ${shortUrl(r.keys[0])} | ${r.clicks} | ${r.impressions} | ${(r.ctr*100).toFixed(1)}% | ${r.position.toFixed(1)}位 |`
+    ));
     lines.push('');
   }
 
@@ -271,12 +359,13 @@ async function main() {
   lines.push('- [ ] 🔴 CTRが低いクエリのtitle/descriptionを見直す');
   lines.push('- [ ] 🟡 チャンスクエリをXで重点的に発信する');
   lines.push('- [ ] 流入元を確認し、弱いチャネルへの施策を検討する');
+  lines.push('- [ ] 📄 ページ別パフォーマンスで科目ページの効果を確認する');
 
   const issueBody = lines.join('\n');
   await createIssue(`[SEOレポート] ${today}`, issueBody);
   console.log('✅ SEOレポートIssue作成完了');
 
-  await sendEmail(today, totalImpressions, totalClicks, avgCtr, avgPosition, totalSessions, ga4Rows, lowCtr, opportunity, issueBody);
+  await sendEmail({ today, curr, prev, ga4Rows, topPages, lowCtr, opportunity }, issueBody);
   console.log('✅ SEOレポートメール送信完了');
 }
 
