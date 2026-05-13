@@ -276,7 +276,7 @@ async function main() {
   const opportunity = gscRows
     .filter(r => r.position >= 5 && r.position <= 20)
     .sort((a, b) => b.impressions - a.impressions)
-    .slice(0, 5);
+    .slice(0, 10);
 
   // 分析：好調クエリ（クリック数上位）
   const topQueries = [...gscRows]
