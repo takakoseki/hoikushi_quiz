@@ -428,6 +428,18 @@
   }
 
   // ---- Init ----
+  // Apply subject preset from subject-specific pages
+  const _VALID_SUBJECTS = ['保育原理','教育原理','社会福祉','子ども家庭福祉','社会的養護','保育の心理学','子どもの保健','子どもの食と栄養','保育実習理論'];
+  if (window.PRESET_SUBJECT && _VALID_SUBJECTS.includes(window.PRESET_SUBJECT)) {
+    state.selectedSubject = window.PRESET_SUBJECT;
+    document.querySelectorAll('.subject-btn').forEach(function(btn) {
+      var match = btn.dataset.subject === window.PRESET_SUBJECT;
+      btn.classList.toggle('active', match);
+      btn.setAttribute('aria-pressed', match ? 'true' : 'false');
+    });
+    var subtitle = document.querySelector('.app-subtitle');
+    if (subtitle) subtitle.textContent = window.PRESET_SUBJECT + ' · ' + window.PRESET_SUBJECT_COUNT + '問 · 4択形式';
+  }
   initStartScreen();
 
 })();
