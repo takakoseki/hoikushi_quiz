@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /flashcard/privacy.html
 
 Sitemap: https://hoikushi-quiz.com/sitemap.xml
