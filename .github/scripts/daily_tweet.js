@@ -93,7 +93,7 @@ function buildXPostTweets(q) {
   const tweets = [];
 
   // ① 問題ツイート（問題文が長い場合は文単位で複数ツイートに分割）
-  const questionHeader = `📷 今日の保育士試験1問\n【${q.subject}】\n`;
+  const questionHeader = `📚 今日の保育士試験1問\n【${q.subject}】\n`;
   const questionHeaderLen = charCount(questionHeader);
   const questionParts = splitByLength(q.question, TWEET_LIMIT - questionHeaderLen);
   tweets.push(questionHeader + questionParts[0]);
@@ -188,7 +188,7 @@ function buildXPostTweets(q) {
 }
 
 function buildCtaTweet() {
-  return `📷 全460問無料で練習！\n${X_URL}\n\n#保育士試験 #保育士勉強`;
+  return `📚 全460問無料で練習！\n${X_URL}\n\n#保育士試験 #保育士勉強`;
 }
 
 function buildXSection(tweets) {
