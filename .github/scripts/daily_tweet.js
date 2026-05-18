@@ -24,6 +24,25 @@ const TWEET_LIMIT = 140;
 const URL_DISPLAY_LENGTH = 23;
 const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
 
+const SUBJECT_HASHTAGS = {
+  '保育原理':       '#保育原理',
+  '教育原理':       '#教育原理',
+  '社会福祉':       '#社会福祉',
+  '子ども家庭福祉': '#子ども家庭福祉',
+  '社会的養護':     '#社会的養護',
+  '保育の心理学':   '#保育心理学',
+  '子どもの保健':   '#子どもの保健',
+  '子どもの食と栄養': '#食と栄養',
+  '保育実習理論':   '#保育実習理論',
+};
+
+const HOOKS = [
+  '受験生が間違えやすい問題です👇\nアンケートで答えてみてください！',
+  '正答率の低い頻出問題です👇\nアンケートで答えてみてください！',
+  'あなたは解けますか？👇\nアンケートで回答してみてください！',
+  '試験直前に確認したい問題です👇\nアンケートで答えてみてください！',
+];
+
 function charCount(text) {
   // URLを23文字として計算
   const withoutUrls = text.replace(/https?:\/\/\S+/g, '');
@@ -91,33 +110,20 @@ function buildAnswerText(q) {
 // X（Twitter）投稿用のスレッドを生成（各ツイートは140文字以内）
 function buildXPostTweets(q) {
   const tweets = [];
+  const hook = HOOKS[daysSinceEpoch % HOOKS.length];
+  const subjectTag = SUBJECT_HASHTAGS[q.subject] || '';
 
-  // ① 問題ツイート（問題文が長い場合は文単位で複数ツイートに分割）
-  const questionHeader = `📚 今日の保育士試験1問\n【${q.subject}】\n`;
-  const questionHeaderLen = charCount(questionHeader);
-  const questionParts = splitByLength(q.question, TWEET_LIMIT - questionHeaderLen);
-  tweets.push(questionHeader + questionParts[0]);
+  // ① フック＋問題ツイート（アンケート付きで投稿する想定）
+  const questionHeader = `📝【${q.subject}・頻出問題】\n\n`;
+  const footer = `\n\n${hook}`;
+  const bodyMax = TWEET_LIMIT - charCount(questionHeader) - charCount(footer);
+  const questionParts = splitByLength(q.question, bodyMax);
+  tweets.push(questionHeader + questionParts[0] + footer);
   for (let k = 1; k < questionParts.length; k++) {
     tweets.push(questionParts[k]);
   }
 
-  // ②③ 選択肢ツイート（2択ずつまとめ、超えたら1択ずつ）
-  const choiceLines = q.choices.map((c, i) => `${LABELS[i]}. ${c}`);
-  let i = 0;
-  while (i < choiceLines.length) {
-    if (i + 1 < choiceLines.length) {
-      const combined = choiceLines[i] + '\n' + choiceLines[i + 1];
-      if (charCount(combined) <= TWEET_LIMIT) {
-        tweets.push(combined);
-        i += 2;
-        continue;
-      }
-    }
-    tweets.push(choiceLines[i]);
-    i++;
-  }
-
-  // ④ 正解＋解説ツイート（解説が長ければ続きのツイートに分割）
+  // ② 正解＋解説ツイート（解説が長ければ続きのツイートに分割）
   const correctLabel = LABELS[q.answer];
   const correctChoice = q.choices[q.answer];
   const answerLine = `正解：${correctLabel}. ${correctChoice}`;
@@ -174,7 +180,7 @@ function buildXPostTweets(q) {
     for (let j = 1; j < resplit.length; j++) {
       tweets.push(`${continuationHeader}${resplit[j]}`);
     }
-    return [...tweets, buildCtaTweet()];
+    return [...tweets, buildCtaTweet(subjectTag)];
   }
 
   for (const seg of continuationSegs) {
@@ -182,21 +188,31 @@ function buildXPostTweets(q) {
   }
 
   // 最後: CTA
-  tweets.push(buildCtaTweet());
+  tweets.push(buildCtaTweet(subjectTag));
 
   return tweets;
 }
 
-function buildCtaTweet() {
-  return `📚 全460問無料で練習！\n${X_URL}\n\n#保育士試験 #保育士勉強`;
+function buildCtaTweet(subjectTag) {
+  return `📚 全460問無料で練習！\n${X_URL}\n\n#保育士試験 #保育士勉強 #保育士試験勉強垢 ${subjectTag}`.trimEnd();
 }
 
-function buildXSection(tweets) {
+function buildPollSection(q) {
+  const choiceLines = q.choices.map((c, i) => `${LABELS[i]}. ${c}`).join('\n');
+  return `
+<hr>
+<h3>📊 アンケート設定（①のツイートにアンケートを追加してください）</h3>
+<p style="color:#333;font-size:14px;">①のテキストを投稿する際、<strong>「アンケートを追加」</strong>から以下の4択を設定してください。</p>
+<pre style="background:#fff8e1;border:1px solid #f0b429;border-radius:8px;padding:12px;font-family:sans-serif;font-size:14px;line-height:1.8;white-space:pre-wrap;">${choiceLines}</pre>
+`;
+}
+
+function buildXSection(q, tweets) {
   const tweetBlocks = tweets.map((text, idx) => {
     const label = CIRCLED[idx] || `(${idx + 1})`;
     const count = charCount(text);
     const note = idx === 0
-      ? 'スレッド1件目'
+      ? 'スレッド1件目（アンケート付きで投稿）'
       : idx === tweets.length - 1
         ? `スレッド${idx + 1}件目 — ${CIRCLED[idx - 1]}にリプライ（最終）`
         : `スレッド${idx + 1}件目 — ${CIRCLED[idx - 1]}にリプライ`;
@@ -208,6 +224,7 @@ function buildXSection(tweets) {
 <hr>
 <h3>🐦 本日のXポスト用テキスト（コピペして投稿してください）</h3>
 ${tweetBlocks}
+${buildPollSection(q)}
 `;
 }
 
@@ -240,7 +257,7 @@ async function main() {
 <hr>
 <h3>✅ 解答・解説</h3>
 <pre style="font-family:sans-serif;font-size:15px;line-height:1.8;">${answerText}</pre>
-${buildXSection(tweets)}
+${buildXSection(question, tweets)}
 `;
 
   const textBody = `今日の保育士試験1問（${today})\n\n${questionText}\n\n---\n\n${answerText}\n\n---\n\n${buildXTextSection(tweets)}`;
