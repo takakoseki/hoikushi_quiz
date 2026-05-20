@@ -197,13 +197,35 @@ function buildCtaTweet(subjectTag) {
   return `📚 全460問無料で練習！\n${X_URL}\n\n#保育士試験 #保育士勉強 #保育士試験勉強垢 ${subjectTag}`.trimEnd();
 }
 
+const POLL_CHOICE_LIMIT = 25;
+
+function truncateForPoll(text) {
+  const chars = [...text];
+  if (chars.length <= POLL_CHOICE_LIMIT) return text;
+  return chars.slice(0, POLL_CHOICE_LIMIT - 1).join('') + '…';
+}
+
 function buildPollSection(q) {
-  const choiceLines = q.choices.map((c, i) => `${LABELS[i]}. ${c}`).join('\n');
+  const pollRows = q.choices.map((c, i) => {
+    const truncated = truncateForPoll(c);
+    const isTruncated = [...c].length > POLL_CHOICE_LIMIT;
+    const fullNote = isTruncated
+      ? `<span style="color:#888;font-size:12px;">（全文: ${c}）</span>`
+      : '';
+    return `<tr>
+      <td style="padding:4px 8px;font-weight:bold;white-space:nowrap;">${LABELS[i]}.</td>
+      <td style="padding:4px 8px;">${truncated} ${fullNote}</td>
+    </tr>`;
+  }).join('\n');
+
   return `
 <hr>
 <h3>📊 アンケート設定（①のツイートにアンケートを追加してください）</h3>
-<p style="color:#333;font-size:14px;">①のテキストを投稿する際、<strong>「アンケートを追加」</strong>から以下の4択を設定してください。</p>
-<pre style="background:#fff8e1;border:1px solid #f0b429;border-radius:8px;padding:12px;font-family:sans-serif;font-size:14px;line-height:1.8;white-space:pre-wrap;">${choiceLines}</pre>
+<p style="color:#333;font-size:14px;">①のテキストを投稿する際、<strong>「アンケートを追加」</strong>から以下の4択を設定してください。<br>
+※ Xアンケートは1選択肢25文字までのため、長い選択肢は短縮しています。</p>
+<table style="border-collapse:collapse;background:#fff8e1;border:1px solid #f0b429;border-radius:8px;padding:8px;font-family:sans-serif;font-size:14px;line-height:1.8;width:100%;">
+${pollRows}
+</table>
 `;
 }
 
