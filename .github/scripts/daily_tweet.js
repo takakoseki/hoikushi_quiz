@@ -36,12 +36,25 @@ const SUBJECT_HASHTAGS = {
   '保育実習理論':   '#保育実習理論',
 };
 
-const HOOKS = [
+const POLL_HOOKS = [
   '受験生が間違えやすい問題です👇\nアンケートで答えてみてください！',
   '正答率の低い頻出問題です👇\nアンケートで答えてみてください！',
   'あなたは解けますか？👇\nアンケートで回答してみてください！',
   '試験直前に確認したい問題です👇\nアンケートで答えてみてください！',
 ];
+
+const TEXT_HOOKS = [
+  '受験生が間違えやすい問題です👇\n②で選択肢を確認して答えてみてください！',
+  '正答率の低い頻出問題です👇\n②で選択肢を確認してみてください！',
+  'あなたは解けますか？👇\n②の選択肢を見て考えてみてください！',
+  '試験直前に確認したい問題です👇\n②の選択肢から選んでみてください！',
+];
+
+const POLL_CHOICE_LIMIT = 25;
+
+function canUsePoll(q) {
+  return q.choices.every(c => [...c].length <= POLL_CHOICE_LIMIT);
+}
 
 function charCount(text) {
   // URLを23文字として計算
@@ -110,10 +123,12 @@ function buildAnswerText(q) {
 // X（Twitter）投稿用のスレッドを生成（各ツイートは140文字以内）
 function buildXPostTweets(q) {
   const tweets = [];
-  const hook = HOOKS[daysSinceEpoch % HOOKS.length];
+  const usePoll = canUsePoll(q);
+  const hooks = usePoll ? POLL_HOOKS : TEXT_HOOKS;
+  const hook = hooks[daysSinceEpoch % hooks.length];
   const subjectTag = SUBJECT_HASHTAGS[q.subject] || '';
 
-  // ① フック＋問題ツイート（アンケート付きで投稿する想定）
+  // ① フック＋問題ツイート
   const questionHeader = `📝【${q.subject}・頻出問題】\n\n`;
   const footer = `\n\n${hook}`;
   const bodyMax = TWEET_LIMIT - charCount(questionHeader) - charCount(footer);
@@ -123,7 +138,25 @@ function buildXPostTweets(q) {
     tweets.push(questionParts[k]);
   }
 
-  // ② 正解＋解説ツイート（解説が長ければ続きのツイートに分割）
+  // アンケート不使用時: ②で選択肢をテキスト投稿（2択ずつまとめ、超えたら1択ずつ）
+  if (!usePoll) {
+    const choiceLines = q.choices.map((c, i) => `${LABELS[i]}. ${c}`);
+    let i = 0;
+    while (i < choiceLines.length) {
+      if (i + 1 < choiceLines.length) {
+        const combined = choiceLines[i] + '\n' + choiceLines[i + 1];
+        if (charCount(combined) <= TWEET_LIMIT) {
+          tweets.push(combined);
+          i += 2;
+          continue;
+        }
+      }
+      tweets.push(choiceLines[i]);
+      i++;
+    }
+  }
+
+  // 正解＋解説ツイート（解説が長ければ続きのツイートに分割）
   const correctLabel = LABELS[q.answer];
   const correctChoice = q.choices[q.answer];
   const answerLine = `正解：${correctLabel}. ${correctChoice}`;
@@ -198,24 +231,34 @@ function buildCtaTweet(subjectTag) {
 }
 
 function buildPollSection(q) {
-  const choiceLines = q.choices.map((c, i) => `${LABELS[i]}. ${c}`).join('\n');
+  const pollRows = q.choices.map((c, i) => `<tr>
+    <td style="padding:4px 8px;font-weight:bold;white-space:nowrap;">${LABELS[i]}.</td>
+    <td style="padding:4px 8px;">${c}</td>
+  </tr>`).join('\n');
+
   return `
 <hr>
 <h3>📊 アンケート設定（①のツイートにアンケートを追加してください）</h3>
-<p style="color:#333;font-size:14px;">①のテキストを投稿する際、<strong>「アンケートを追加」</strong>から以下の4択を設定してください。</p>
-<pre style="background:#fff8e1;border:1px solid #f0b429;border-radius:8px;padding:12px;font-family:sans-serif;font-size:14px;line-height:1.8;white-space:pre-wrap;">${choiceLines}</pre>
+<p style="color:#333;font-size:14px;">①のテキストを投稿する際、<strong>「アンケートを追加」</strong>から以下の4択をそのまま入力してください。</p>
+<table style="border-collapse:collapse;background:#fff8e1;border:1px solid #f0b429;border-radius:8px;padding:8px;font-family:sans-serif;font-size:14px;line-height:1.8;width:100%;">
+${pollRows}
+</table>
 `;
 }
 
 function buildXSection(q, tweets) {
+  const usePoll = canUsePoll(q);
   const tweetBlocks = tweets.map((text, idx) => {
     const label = CIRCLED[idx] || `(${idx + 1})`;
     const count = charCount(text);
-    const note = idx === 0
-      ? 'スレッド1件目（アンケート付きで投稿）'
-      : idx === tweets.length - 1
-        ? `スレッド${idx + 1}件目 — ${CIRCLED[idx - 1]}にリプライ（最終）`
-        : `スレッド${idx + 1}件目 — ${CIRCLED[idx - 1]}にリプライ`;
+    let note;
+    if (idx === 0) {
+      note = usePoll ? 'スレッド1件目（アンケート付きで投稿）' : 'スレッド1件目';
+    } else if (idx === tweets.length - 1) {
+      note = `スレッド${idx + 1}件目 — ${CIRCLED[idx - 1]}にリプライ（最終）`;
+    } else {
+      note = `スレッド${idx + 1}件目 — ${CIRCLED[idx - 1]}にリプライ`;
+    }
     return `<p style="color:#666;font-size:13px;">${label} ${note}（${count}文字）</p>
 <pre style="background:#f0f8ff;border:1px solid #1d9bf0;border-radius:8px;padding:12px;font-family:sans-serif;font-size:14px;line-height:1.8;white-space:pre-wrap;">${text}</pre>`;
   }).join('\n');
@@ -224,7 +267,7 @@ function buildXSection(q, tweets) {
 <hr>
 <h3>🐦 本日のXポスト用テキスト（コピペして投稿してください）</h3>
 ${tweetBlocks}
-${buildPollSection(q)}
+${usePoll ? buildPollSection(q) : ''}
 `;
 }
 
