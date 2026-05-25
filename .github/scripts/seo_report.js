@@ -32,6 +32,27 @@ function shortUrl(url) {
   return url.replace(/^https?:\/\/[^/]+/, '') || '/';
 }
 
+async function fetchGSCTotals(auth, startDate, endDate) {
+  const webmasters = google.webmasters({ version: 'v3', auth });
+  try {
+    const res = await webmasters.searchanalytics.query({
+      siteUrl: GSC_SITE_URL,
+      requestBody: {
+        startDate,
+        endDate,
+        // dimensionsなし = プライバシーフィルタを受けない正確な合計値
+      },
+    });
+    const row = (res.data.rows || [])[0];
+    return row
+      ? { impressions: row.impressions, clicks: row.clicks, ctr: row.ctr, position: row.position }
+      : { impressions: 0, clicks: 0, ctr: 0, position: 0 };
+  } catch (e) {
+    console.error('GSC totals error:', e.message);
+    return { impressions: 0, clicks: 0, ctr: 0, position: 0 };
+  }
+}
+
 async function fetchGSCByQuery(auth, startDate, endDate) {
   const webmasters = google.webmasters({ version: 'v3', auth });
   try {
@@ -103,6 +124,56 @@ async function fetchGA4(auth, startDate, endDate) {
   }
 }
 
+async function fetchGA4ByPage(auth, startDate, endDate) {
+  const analyticsdata = google.analyticsdata({ version: 'v1beta', auth });
+  try {
+    const res = await analyticsdata.properties.runReport({
+      property: `properties/${GA4_PROPERTY_ID}`,
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [
+          { name: 'sessions' },
+          { name: 'screenPageViews' },
+        ],
+        dimensions: [{ name: 'pagePath' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 10,
+      },
+    });
+    return (res.data.rows || []).map(r => ({
+      path: r.dimensionValues[0].value,
+      sessions: parseInt(r.metricValues[0].value),
+      pageviews: parseInt(r.metricValues[1].value),
+    }));
+  } catch (e) {
+    console.error('GA4 page error:', e.message);
+    return [];
+  }
+}
+
+async function fetchGA4ByDevice(auth, startDate, endDate) {
+  const analyticsdata = google.analyticsdata({ version: 'v1beta', auth });
+  try {
+    const res = await analyticsdata.properties.runReport({
+      property: `properties/${GA4_PROPERTY_ID}`,
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [{ name: 'sessions' }],
+        dimensions: [{ name: 'deviceCategory' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      },
+    });
+    const deviceMap = { mobile: 'スマホ', desktop: 'PC', tablet: 'タブレット' };
+    return (res.data.rows || []).map(r => ({
+      device: deviceMap[r.dimensionValues[0].value] || r.dimensionValues[0].value,
+      sessions: parseInt(r.metricValues[0].value),
+    }));
+  } catch (e) {
+    console.error('GA4 device error:', e.message);
+    return [];
+  }
+}
+
 function createIssue(title, body) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({ title, body });
@@ -131,7 +202,7 @@ function createIssue(title, body) {
 }
 
 async function sendEmail(reportData, issueBody) {
-  const { today, curr, prev, ga4Rows, topPages, lowCtr, opportunity } = reportData;
+  const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity } = reportData;
 
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -148,15 +219,24 @@ async function sendEmail(reportData, issueBody) {
   const tdl = (v) => `<td style="padding:4px 8px;">${v}</td>`;
 
   const summaryHtml = `
-    <tr>${tdl('表示回数')}${td(curr.impressions)}${td(prev.impressions)}${td(diffLabel(curr.impressions, prev.impressions))}</tr>
-    <tr>${tdl('クリック数')}${td(curr.clicks)}${td(prev.clicks)}${td(diffLabel(curr.clicks, prev.clicks))}</tr>
+    <tr>${tdl('表示回数（GSC）')}${td(curr.impressions)}${td(prev.impressions)}${td(diffLabel(curr.impressions, prev.impressions))}</tr>
+    <tr>${tdl('クリック数（GSC）')}${td(curr.clicks)}${td(prev.clicks)}${td(diffLabel(curr.clicks, prev.clicks))}</tr>
     <tr>${tdl('平均CTR')}${td(curr.ctr + '%')}${td(prev.ctr + '%')}${td('–')}</tr>
     <tr>${tdl('平均順位')}${td(curr.position + '位')}${td(prev.position + '位')}${td('–')}</tr>
-    <tr>${tdl('セッション')}${td(curr.sessions)}${td(prev.sessions)}${td(diffLabel(curr.sessions, prev.sessions))}</tr>`;
+    <tr style="background:#f0f8ff;">${tdl('セッション（GA4）')}${td(curr.sessions)}${td(prev.sessions)}${td(diffLabel(curr.sessions, prev.sessions))}</tr>
+    <tr style="background:#f0f8ff;">${tdl('ページビュー（GA4）')}${td(curr.pageviews)}${td(prev.pageviews)}${td(diffLabel(curr.pageviews, prev.pageviews))}</tr>`;
 
   const channelHtml = ga4Rows.length > 0
     ? ga4Rows.map(r => `<tr>${tdl(r.channel)}${td(r.sessions)}</tr>`).join('')
     : `<tr><td colspan="2" style="padding:4px 8px;">データなし</td></tr>`;
+
+  const deviceHtml = ga4DeviceRows.length > 0
+    ? ga4DeviceRows.map(r => `<tr>${tdl(r.device)}${td(r.sessions)}</tr>`).join('')
+    : `<tr><td colspan="2" style="padding:4px 8px;">データなし</td></tr>`;
+
+  const ga4PageHtml = ga4PageRows.length > 0
+    ? ga4PageRows.map(r => `<tr>${tdl(r.path)}${td(r.sessions)}${td(r.pageviews)}</tr>`).join('')
+    : `<tr><td colspan="3" style="padding:4px 8px;">データなし</td></tr>`;
 
   const pageHtml = topPages.length > 0
     ? topPages.map(r => `<tr>${tdl(shortUrl(r.keys[0]))}${td(r.clicks)}${td(r.impressions)}${td((r.ctr*100).toFixed(1)+'%')}${td(r.position.toFixed(1)+'位')}</tr>`).join('')
@@ -179,10 +259,22 @@ async function sendEmail(reportData, issueBody) {
   ${summaryHtml}
 </table>
 
-<h3>流入元内訳（GA4）</h3>
+<h3>📱 流入元内訳（GA4）</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
   <tr style="background:#f0f0f0;">${th('チャネル')}${th('セッション')}</tr>
   ${channelHtml}
+</table>
+
+<h3>💻 デバイス別内訳（GA4）</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('デバイス')}${th('セッション')}</tr>
+  ${deviceHtml}
+</table>
+
+<h3>📄 ページ別閲覧数（GA4）</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('ページ')}${th('セッション')}${th('PV')}</tr>
+  ${ga4PageHtml}
 </table>
 
 <h3>📄 ページ別パフォーマンス（GSC）</h3>
@@ -229,37 +321,43 @@ async function main() {
   const prevStartDate = dateStr(14);
   const today = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
-  const [gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows] = await Promise.all([
+  const [
+    gscTotals, prevGscTotals,
+    gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows, ga4PageRows, ga4DeviceRows,
+  ] = await Promise.all([
+    fetchGSCTotals(auth, startDate, endDate),
+    fetchGSCTotals(auth, prevStartDate, prevEndDate),
     fetchGSCByQuery(auth, startDate, endDate),
     fetchGA4(auth, startDate, endDate),
     fetchGSCByQuery(auth, prevStartDate, prevEndDate),
     fetchGA4(auth, prevStartDate, prevEndDate),
     fetchGSCByPage(auth, startDate, endDate),
+    fetchGA4ByPage(auth, startDate, endDate),
+    fetchGA4ByDevice(auth, startDate, endDate),
   ]);
 
-  // 今週 GSC 集計
-  const totalImpressions = gscRows.reduce((s, r) => s + r.impressions, 0);
-  const totalClicks      = gscRows.reduce((s, r) => s + r.clicks, 0);
+  // 今週 GSC 集計（合計値はdimensionsなしの正確な値を使用）
+  const totalImpressions = gscTotals.impressions;
+  const totalClicks      = gscTotals.clicks;
   const avgCtr = totalImpressions > 0
     ? (totalClicks / totalImpressions * 100).toFixed(1) : '0.0';
-  const avgPosition = gscRows.length > 0
-    ? (gscRows.reduce((s, r) => s + r.position, 0) / gscRows.length).toFixed(1) : '-';
+  const avgPosition = gscTotals.position > 0 ? gscTotals.position.toFixed(1) : '-';
 
   // 先週 GSC 集計
-  const prevImpressions = prevGscRows.reduce((s, r) => s + r.impressions, 0);
-  const prevClicks      = prevGscRows.reduce((s, r) => s + r.clicks, 0);
+  const prevImpressions = prevGscTotals.impressions;
+  const prevClicks      = prevGscTotals.clicks;
   const prevCtr = prevImpressions > 0
     ? (prevClicks / prevImpressions * 100).toFixed(1) : '0.0';
-  const prevPosition = prevGscRows.length > 0
-    ? (prevGscRows.reduce((s, r) => s + r.position, 0) / prevGscRows.length).toFixed(1) : '-';
+  const prevPosition = prevGscTotals.position > 0 ? prevGscTotals.position.toFixed(1) : '-';
 
   // 今週・先週 GA4 集計
   const totalSessions  = ga4Rows.reduce((s, r) => s + r.sessions, 0);
   const totalPageviews = ga4Rows.reduce((s, r) => s + r.pageviews, 0);
   const prevSessions   = prevGa4Rows.reduce((s, r) => s + r.sessions, 0);
+  const prevPageviews  = prevGa4Rows.reduce((s, r) => s + r.pageviews, 0);
 
-  const curr = { impressions: totalImpressions, clicks: totalClicks, ctr: avgCtr, position: avgPosition, sessions: totalSessions };
-  const prev = { impressions: prevImpressions, clicks: prevClicks, ctr: prevCtr, position: prevPosition, sessions: prevSessions };
+  const curr = { impressions: totalImpressions, clicks: totalClicks, ctr: avgCtr, position: avgPosition, sessions: totalSessions, pageviews: totalPageviews };
+  const prev = { impressions: prevImpressions, clicks: prevClicks, ctr: prevCtr, position: prevPosition, sessions: prevSessions, pageviews: prevPageviews };
 
   // ページ別上位（クリック数順）
   const topPages = [...gscPageRows]
@@ -292,19 +390,38 @@ async function main() {
     '',
     '| 指標 | 今週 | 先週 | 前週比 |',
     '|------|------|------|--------|',
-    `| 表示回数 | ${curr.impressions} | ${prev.impressions} | ${diffLabel(curr.impressions, prev.impressions)} |`,
-    `| クリック数 | ${curr.clicks} | ${prev.clicks} | ${diffLabel(curr.clicks, prev.clicks)} |`,
+    `| 表示回数（GSC） | ${curr.impressions} | ${prev.impressions} | ${diffLabel(curr.impressions, prev.impressions)} |`,
+    `| クリック数（GSC） | ${curr.clicks} | ${prev.clicks} | ${diffLabel(curr.clicks, prev.clicks)} |`,
     `| 平均CTR | ${curr.ctr}% | ${prev.ctr}% | – |`,
     `| 平均順位 | ${curr.position}位 | ${prev.position}位 | – |`,
-    `| セッション | ${curr.sessions} | ${prev.sessions} | ${diffLabel(curr.sessions, prev.sessions)} |`,
+    `| セッション（GA4） | ${curr.sessions} | ${prev.sessions} | ${diffLabel(curr.sessions, prev.sessions)} |`,
+    `| ページビュー（GA4） | ${curr.pageviews} | ${prev.pageviews} | ${diffLabel(curr.pageviews, prev.pageviews)} |`,
     '',
   ];
 
+  lines.push('### 📱 流入元内訳（GA4）');
+  lines.push('| チャネル | セッション |');
+  lines.push('|---------|-----------|');
   if (ga4Rows.length > 0) {
-    lines.push('### 流入元内訳（GA4）');
-    lines.push('| チャネル | セッション |');
-    lines.push('|---------|-----------|');
     ga4Rows.forEach(r => lines.push(`| ${r.channel} | ${r.sessions} |`));
+  } else {
+    lines.push('| データなし | – |');
+  }
+  lines.push('');
+
+  if (ga4DeviceRows.length > 0) {
+    lines.push('### 📱 デバイス別内訳（GA4）');
+    lines.push('| デバイス | セッション |');
+    lines.push('|---------|-----------|');
+    ga4DeviceRows.forEach(r => lines.push(`| ${r.device} | ${r.sessions} |`));
+    lines.push('');
+  }
+
+  if (ga4PageRows.length > 0) {
+    lines.push('### 📄 ページ別閲覧数（GA4）');
+    lines.push('| ページ | セッション | PV |');
+    lines.push('|-------|-----------|-----|');
+    ga4PageRows.forEach(r => lines.push(`| ${r.path} | ${r.sessions} | ${r.pageviews} |`));
     lines.push('');
   }
 
@@ -365,7 +482,7 @@ async function main() {
   await createIssue(`[SEOレポート] ${today}`, issueBody);
   console.log('✅ SEOレポートIssue作成完了');
 
-  await sendEmail({ today, curr, prev, ga4Rows, topPages, lowCtr, opportunity }, issueBody);
+  await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity }, issueBody);
   console.log('✅ SEOレポートメール送信完了');
 }
 

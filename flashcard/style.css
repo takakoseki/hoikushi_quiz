@@ -634,3 +634,85 @@ body {
 .subject-link-card { display: flex; flex-direction: column; align-items: center; padding: 10px 6px; border: 1px solid #e0e4f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 12px; font-weight: 500; background: #f8f9ff; transition: background 0.15s; gap: 2px; }
 .subject-link-card span { font-size: 11px; color: #888; }
 .subject-link-card:hover { background: #eef0ff; }
+
+/* Subject intro section */
+.subject-intro {
+  margin-top: 28px;
+  padding: 16px 18px;
+  background: #f8f9ff;
+  border-radius: 10px;
+  border-left: 3px solid var(--c-primary);
+}
+.subject-intro h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--c-primary);
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.subject-intro p {
+  font-size: 0.82rem;
+  color: var(--c-text-sub);
+  line-height: 1.75;
+  margin-bottom: 12px;
+}
+.subject-intro-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.subject-intro-topics li {
+  font-size: 0.75rem;
+  color: #555;
+  background: #fff;
+  border: 1px solid #dde2f0;
+  border-radius: 4px;
+  padding: 3px 9px;
+}
+
+/* FAQ section */
+.faq-section { margin-top: 36px; }
+.faq-section h2 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--c-text-sub);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.faq-list { margin: 0; padding: 0; }
+.faq-item {
+  border-bottom: 1px solid #eaecf4;
+  padding: 14px 0;
+}
+.faq-item:last-child { border-bottom: none; }
+.faq-q {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--c-text);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  list-style: none;
+}
+.faq-q::after {
+  content: '＋';
+  font-size: 1rem;
+  color: var(--c-primary);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.faq-item.open .faq-q::after { content: '－'; }
+.faq-a {
+  font-size: 0.82rem;
+  color: var(--c-text-sub);
+  line-height: 1.75;
+  margin-top: 8px;
+  display: none;
+}
+.faq-item.open .faq-a { display: block; }
