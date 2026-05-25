@@ -634,3 +634,41 @@ body {
 .subject-link-card { display: flex; flex-direction: column; align-items: center; padding: 10px 6px; border: 1px solid #e0e4f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 12px; font-weight: 500; background: #f8f9ff; transition: background 0.15s; gap: 2px; }
 .subject-link-card span { font-size: 11px; color: #888; }
 .subject-link-card:hover { background: #eef0ff; }
+
+/* Subject intro section */
+.subject-intro {
+  margin-top: 28px;
+  padding: 16px 18px;
+  background: #f8f9ff;
+  border-radius: 10px;
+  border-left: 3px solid var(--c-primary);
+}
+.subject-intro h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--c-primary);
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.subject-intro p {
+  font-size: 0.82rem;
+  color: var(--c-text-sub);
+  line-height: 1.75;
+  margin-bottom: 12px;
+}
+.subject-intro-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.subject-intro-topics li {
+  font-size: 0.75rem;
+  color: #555;
+  background: #fff;
+  border: 1px solid #dde2f0;
+  border-radius: 4px;
+  padding: 3px 9px;
+}
