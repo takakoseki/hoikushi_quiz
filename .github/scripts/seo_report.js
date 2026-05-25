@@ -32,6 +32,27 @@ function shortUrl(url) {
   return url.replace(/^https?:\/\/[^/]+/, '') || '/';
 }
 
+async function fetchGSCTotals(auth, startDate, endDate) {
+  const webmasters = google.webmasters({ version: 'v3', auth });
+  try {
+    const res = await webmasters.searchanalytics.query({
+      siteUrl: GSC_SITE_URL,
+      requestBody: {
+        startDate,
+        endDate,
+        // dimensionsなし = プライバシーフィルタを受けない正確な合計値
+      },
+    });
+    const row = (res.data.rows || [])[0];
+    return row
+      ? { impressions: row.impressions, clicks: row.clicks, ctr: row.ctr, position: row.position }
+      : { impressions: 0, clicks: 0, ctr: 0, position: 0 };
+  } catch (e) {
+    console.error('GSC totals error:', e.message);
+    return { impressions: 0, clicks: 0, ctr: 0, position: 0 };
+  }
+}
+
 async function fetchGSCByQuery(auth, startDate, endDate) {
   const webmasters = google.webmasters({ version: 'v3', auth });
   try {
@@ -300,7 +321,12 @@ async function main() {
   const prevStartDate = dateStr(14);
   const today = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
-  const [gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows, ga4PageRows, ga4DeviceRows] = await Promise.all([
+  const [
+    gscTotals, prevGscTotals,
+    gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows, ga4PageRows, ga4DeviceRows,
+  ] = await Promise.all([
+    fetchGSCTotals(auth, startDate, endDate),
+    fetchGSCTotals(auth, prevStartDate, prevEndDate),
     fetchGSCByQuery(auth, startDate, endDate),
     fetchGA4(auth, startDate, endDate),
     fetchGSCByQuery(auth, prevStartDate, prevEndDate),
@@ -310,21 +336,19 @@ async function main() {
     fetchGA4ByDevice(auth, startDate, endDate),
   ]);
 
-  // 今週 GSC 集計
-  const totalImpressions = gscRows.reduce((s, r) => s + r.impressions, 0);
-  const totalClicks      = gscRows.reduce((s, r) => s + r.clicks, 0);
+  // 今週 GSC 集計（合計値はdimensionsなしの正確な値を使用）
+  const totalImpressions = gscTotals.impressions;
+  const totalClicks      = gscTotals.clicks;
   const avgCtr = totalImpressions > 0
     ? (totalClicks / totalImpressions * 100).toFixed(1) : '0.0';
-  const avgPosition = gscRows.length > 0
-    ? (gscRows.reduce((s, r) => s + r.position, 0) / gscRows.length).toFixed(1) : '-';
+  const avgPosition = gscTotals.position > 0 ? gscTotals.position.toFixed(1) : '-';
 
   // 先週 GSC 集計
-  const prevImpressions = prevGscRows.reduce((s, r) => s + r.impressions, 0);
-  const prevClicks      = prevGscRows.reduce((s, r) => s + r.clicks, 0);
+  const prevImpressions = prevGscTotals.impressions;
+  const prevClicks      = prevGscTotals.clicks;
   const prevCtr = prevImpressions > 0
     ? (prevClicks / prevImpressions * 100).toFixed(1) : '0.0';
-  const prevPosition = prevGscRows.length > 0
-    ? (prevGscRows.reduce((s, r) => s + r.position, 0) / prevGscRows.length).toFixed(1) : '-';
+  const prevPosition = prevGscTotals.position > 0 ? prevGscTotals.position.toFixed(1) : '-';
 
   // 今週・先週 GA4 集計
   const totalSessions  = ga4Rows.reduce((s, r) => s + r.sessions, 0);
