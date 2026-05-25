@@ -442,4 +442,11 @@
   }
   initStartScreen();
 
+  // FAQ accordion
+  document.querySelectorAll('.faq-q').forEach(function(dt) {
+    dt.addEventListener('click', function() {
+      dt.closest('.faq-item').classList.toggle('open');
+    });
+  });
+
 })();
