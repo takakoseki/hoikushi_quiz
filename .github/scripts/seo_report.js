@@ -12,6 +12,25 @@ const GA4_PROPERTY_ID = process.env.GA4_PROPERTY_ID;
 const GITHUB_TOKEN    = process.env.GITHUB_TOKEN;
 const [REPO_OWNER, REPO_NAME] = (process.env.GITHUB_REPOSITORY || '/').split('/');
 
+// ---- 目標値 ----
+const TARGETS = {
+  short: {
+    label: '短期目標',
+    deadline: '2026年7月31日',
+    impressions: 100,
+    clicks: 10,
+    position: 5.0,
+    sessions: 50,
+  },
+  mid: {
+    label: '中期目標',
+    deadline: '2026年9月30日',
+    impressions: 500,
+    clicks: 50,
+    organicSessions: 30,
+  },
+};
+
 function dateStr(daysAgo) {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
@@ -30,6 +49,17 @@ function diffLabel(current, prev) {
 
 function shortUrl(url) {
   return url.replace(/^https?:\/\/[^/]+/, '') || '/';
+}
+
+function goalStatus(current, target, lowerIsBetter = false) {
+  if (!target) return { pct: '–', icon: '–' };
+  const ratio = lowerIsBetter
+    ? (current > 0 ? target / current : 0)
+    : (target > 0 ? current / target : 0);
+  const achieved = lowerIsBetter ? current <= target : current >= target;
+  const pct = achieved ? '✅ 達成' : `${Math.min(Math.round(ratio * 100), 99)}%`;
+  const icon = achieved ? '🟢' : ratio >= 0.5 ? '🟡' : '🔴';
+  return { pct, icon };
 }
 
 async function fetchGSCTotals(auth, startDate, endDate) {
@@ -202,7 +232,7 @@ function createIssue(title, body) {
 }
 
 async function sendEmail(reportData, issueBody) {
-  const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity } = reportData;
+  const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions } = reportData;
 
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -297,6 +327,23 @@ ${opportunity.length > 0 ? `
   ${opportunityHtml}
 </table>` : ''}
 
+<h3>🎯 目標達成状況</h3>
+<p style="font-size:13px;font-weight:bold;">${TARGETS.short.label}（${TARGETS.short.deadline}まで）</p>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('指標')}${th('現在')}${th('目標')}${th('達成率')}</tr>
+  <tr>${tdl('週間表示回数')}${td(curr.impressions)}${td(TARGETS.short.impressions)}${td(`${goals.short.impressions.icon} ${goals.short.impressions.pct}`)}</tr>
+  <tr>${tdl('週間クリック数')}${td(curr.clicks)}${td(TARGETS.short.clicks)}${td(`${goals.short.clicks.icon} ${goals.short.clicks.pct}`)}</tr>
+  <tr>${tdl('平均順位')}${td(curr.position + '位')}${td(TARGETS.short.position + '位以内')}${td(`${goals.short.position.icon} ${goals.short.position.pct}`)}</tr>
+  <tr>${tdl('セッション（週）')}${td(curr.sessions)}${td(TARGETS.short.sessions)}${td(`${goals.short.sessions.icon} ${goals.short.sessions.pct}`)}</tr>
+</table>
+<p style="font-size:13px;font-weight:bold;margin-top:12px;">${TARGETS.mid.label}（${TARGETS.mid.deadline}まで）</p>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('指標')}${th('現在')}${th('目標')}${th('達成率')}</tr>
+  <tr>${tdl('週間表示回数')}${td(curr.impressions)}${td(TARGETS.mid.impressions)}${td(`${goals.mid.impressions.icon} ${goals.mid.impressions.pct}`)}</tr>
+  <tr>${tdl('週間クリック数')}${td(curr.clicks)}${td(TARGETS.mid.clicks)}${td(`${goals.mid.clicks.icon} ${goals.mid.clicks.pct}`)}</tr>
+  <tr>${tdl('オーガニックセッション（週）')}${td(organicSessions)}${td(TARGETS.mid.organicSessions)}${td(`${goals.mid.organicSessions.icon} ${goals.mid.organicSessions.pct}`)}</tr>
+</table>
+
 <hr>
 <p style="font-size:12px;color:#666;">詳細はGitHub Issueを確認してください。</p>
 `;
@@ -380,6 +427,23 @@ async function main() {
   const topQueries = [...gscRows]
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, 5);
+
+  // 目標達成状況
+  const organicSessions = ga4Rows.find(r => r.channel === '検索')?.sessions || 0;
+  const posNum = parseFloat(curr.position) || 0;
+  const goals = {
+    short: {
+      impressions: goalStatus(curr.impressions, TARGETS.short.impressions),
+      clicks:      goalStatus(curr.clicks,      TARGETS.short.clicks),
+      position:    goalStatus(posNum,            TARGETS.short.position, true),
+      sessions:    goalStatus(curr.sessions,     TARGETS.short.sessions),
+    },
+    mid: {
+      impressions:     goalStatus(curr.impressions, TARGETS.mid.impressions),
+      clicks:          goalStatus(curr.clicks,      TARGETS.mid.clicks),
+      organicSessions: goalStatus(organicSessions,  TARGETS.mid.organicSessions),
+    },
+  };
 
   // Issue 本文
   const lines = [
@@ -472,6 +536,24 @@ async function main() {
   }
 
   lines.push('---', '');
+  lines.push('## 🎯 目標達成状況', '');
+  lines.push(`### ${TARGETS.short.label}（${TARGETS.short.deadline}まで）`, '');
+  lines.push('| 指標 | 現在 | 目標 | 達成率 |');
+  lines.push('|------|------|------|--------|');
+  lines.push(`| 週間表示回数 | ${curr.impressions} | ${TARGETS.short.impressions} | ${goals.short.impressions.icon} ${goals.short.impressions.pct} |`);
+  lines.push(`| 週間クリック数 | ${curr.clicks} | ${TARGETS.short.clicks} | ${goals.short.clicks.icon} ${goals.short.clicks.pct} |`);
+  lines.push(`| 平均順位 | ${curr.position}位 | ${TARGETS.short.position}位以内 | ${goals.short.position.icon} ${goals.short.position.pct} |`);
+  lines.push(`| セッション（週） | ${curr.sessions} | ${TARGETS.short.sessions} | ${goals.short.sessions.icon} ${goals.short.sessions.pct} |`);
+  lines.push('');
+  lines.push(`### ${TARGETS.mid.label}（${TARGETS.mid.deadline}まで）`, '');
+  lines.push('| 指標 | 現在 | 目標 | 達成率 |');
+  lines.push('|------|------|------|--------|');
+  lines.push(`| 週間表示回数 | ${curr.impressions} | ${TARGETS.mid.impressions} | ${goals.mid.impressions.icon} ${goals.mid.impressions.pct} |`);
+  lines.push(`| 週間クリック数 | ${curr.clicks} | ${TARGETS.mid.clicks} | ${goals.mid.clicks.icon} ${goals.mid.clicks.pct} |`);
+  lines.push(`| オーガニックセッション（週） | ${organicSessions} | ${TARGETS.mid.organicSessions} | ${goals.mid.organicSessions.icon} ${goals.mid.organicSessions.pct} |`);
+  lines.push('');
+
+  lines.push('---', '');
   lines.push('## ✅ 今週の対応チェックリスト');
   lines.push('- [ ] 🔴 CTRが低いクエリのtitle/descriptionを見直す');
   lines.push('- [ ] 🟡 チャンスクエリをXで重点的に発信する');
@@ -482,7 +564,7 @@ async function main() {
   await createIssue(`[SEOレポート] ${today}`, issueBody);
   console.log('✅ SEOレポートIssue作成完了');
 
-  await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity }, issueBody);
+  await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions }, issueBody);
   console.log('✅ SEOレポートメール送信完了');
 }
 
