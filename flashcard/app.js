@@ -98,8 +98,22 @@
   }
 
   // Subject buttons
+  const SUBJECT_PAGE_URLS = {
+    'all':          '/flashcard/',
+    '保育原理':      '/flashcard/hoiku-genri/',
+    '教育原理':      '/flashcard/kyoiku-genri/',
+    '社会福祉':      '/flashcard/shakai-fukushi/',
+    '子ども家庭福祉': '/flashcard/kodomo-katei-fukushi/',
+    '社会的養護':    '/flashcard/shakaiteki-yogo/',
+    '保育の心理学':  '/flashcard/hoiku-shinrigaku/',
+    '子どもの保健':  '/flashcard/kodomo-hoken/',
+    '子どもの食と栄養': '/flashcard/shokuji-eiyou/',
+    '保育実習理論':  '/flashcard/jisshu-riron/',
+  };
   document.querySelectorAll('.subject-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      const url = SUBJECT_PAGE_URLS[btn.dataset.subject];
+      if (url) { window.location.href = url; return; }
       document.querySelectorAll('.subject-btn').forEach(b => {
         b.classList.remove('active');
         b.setAttribute('aria-pressed', 'false');
