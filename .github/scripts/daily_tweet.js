@@ -36,6 +36,18 @@ const SUBJECT_HASHTAGS = {
   '保育実習理論':   '#保育実習理論',
 };
 
+const SUBJECT_URLS = {
+  '保育原理':       'https://hoikushi-quiz.com/flashcard/hoiku-genri/',
+  '教育原理':       'https://hoikushi-quiz.com/flashcard/kyoiku-genri/',
+  '社会福祉':       'https://hoikushi-quiz.com/flashcard/shakai-fukushi/',
+  '子ども家庭福祉': 'https://hoikushi-quiz.com/flashcard/kodomo-katei-fukushi/',
+  '社会的養護':     'https://hoikushi-quiz.com/flashcard/shakaiteki-yogo/',
+  '保育の心理学':   'https://hoikushi-quiz.com/flashcard/hoiku-shinrigaku/',
+  '子どもの保健':   'https://hoikushi-quiz.com/flashcard/kodomo-hoken/',
+  '子どもの食と栄養': 'https://hoikushi-quiz.com/flashcard/shokuji-eiyou/',
+  '保育実習理論':   'https://hoikushi-quiz.com/flashcard/jisshu-riron/',
+};
+
 const POLL_HOOKS = [
   '受験生が間違えやすい問題です👇\nアンケートで答えてみてください！',
   '正答率の低い頻出問題です👇\nアンケートで答えてみてください！',
@@ -44,10 +56,10 @@ const POLL_HOOKS = [
 ];
 
 const TEXT_HOOKS = [
-  '受験生が間違えやすい問題です👇\n②で選択肢を確認して答えてみてください！',
-  '正答率の低い頻出問題です👇\n②で選択肢を確認してみてください！',
-  'あなたは解けますか？👇\n②の選択肢を見て考えてみてください！',
-  '試験直前に確認したい問題です👇\n②の選択肢から選んでみてください！',
+  '受験生が間違えやすい問題です\n②で選択肢を確認してみてください！',
+  '正答率の低い頻出問題です\n②で選択肢を確認してみてください！',
+  'あなたは解けますか？\n②の選択肢で確認してみてください！',
+  '試験直前に確認したい問題です\n②の選択肢から選んでみてください！',
 ];
 
 const POLL_CHOICE_LIMIT = 25;
@@ -128,9 +140,10 @@ function buildXPostTweets(q) {
   const hook = hooks[daysSinceEpoch % hooks.length];
   const subjectTag = SUBJECT_HASHTAGS[q.subject] || '';
 
-  // ① フック＋問題ツイート
+  // ① フック＋問題ツイート（URL・ハッシュタグ付き）
+  const subjectUrl = SUBJECT_URLS[q.subject] || SITE_URL;
   const questionHeader = `📝【${q.subject}・頻出問題】\n\n`;
-  const footer = `\n\n${hook}`;
+  const footer = `\n\n${subjectUrl}\n\n${hook}`;
   const bodyMax = TWEET_LIMIT - charCount(questionHeader) - charCount(footer);
   const questionParts = splitByLength(q.question, bodyMax);
   tweets.push(questionHeader + questionParts[0] + footer);
@@ -227,7 +240,7 @@ function buildXPostTweets(q) {
 }
 
 function buildCtaTweet(subjectTag) {
-  return `📚 全460問無料で練習！\n${X_URL}\n\n#保育士試験 #保育士勉強 #保育士試験勉強垢 ${subjectTag}`.trimEnd();
+  return `📚 全460問無料で練習できます！\n${X_URL}\n\n#保育士試験 #保育士試験2026 #保育士勉強垢 ${subjectTag}`.trimEnd();
 }
 
 function buildPollSection(q) {
