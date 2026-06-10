@@ -56,10 +56,10 @@ const POLL_HOOKS = [
 ];
 
 const TEXT_HOOKS = [
-  '受験生が間違えやすい問題です👇\n②で選択肢を確認して答えてみてください！',
-  '正答率の低い頻出問題です👇\n②で選択肢を確認してみてください！',
-  'あなたは解けますか？👇\n②の選択肢を見て考えてみてください！',
-  '試験直前に確認したい問題です👇\n②の選択肢から選んでみてください！',
+  '受験生が間違えやすい問題です\n②で選択肢を確認してみてください！',
+  '正答率の低い頻出問題です\n②で選択肢を確認してみてください！',
+  'あなたは解けますか？\n②の選択肢で確認してみてください！',
+  '試験直前に確認したい問題です\n②の選択肢から選んでみてください！',
 ];
 
 const POLL_CHOICE_LIMIT = 25;
@@ -142,9 +142,8 @@ function buildXPostTweets(q) {
 
   // ① フック＋問題ツイート（URL・ハッシュタグ付き）
   const subjectUrl = SUBJECT_URLS[q.subject] || SITE_URL;
-  const hashTagLine = `#保育士試験 #保育士試験2026 #保育士勉強垢${subjectTag ? ' ' + subjectTag : ''}`;
   const questionHeader = `📝【${q.subject}・頻出問題】\n\n`;
-  const footer = `\n\n👇 同じ問題をサイトで解く\n${subjectUrl}\n\n${hook}\n\n${hashTagLine}`;
+  const footer = `\n\n${subjectUrl}\n\n${hook}`;
   const bodyMax = TWEET_LIMIT - charCount(questionHeader) - charCount(footer);
   const questionParts = splitByLength(q.question, bodyMax);
   tweets.push(questionHeader + questionParts[0] + footer);
