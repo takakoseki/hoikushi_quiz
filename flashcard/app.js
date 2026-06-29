@@ -354,6 +354,33 @@
       milestoneWrap.style.display = 'none';
     }
 
+    // ---- 他の科目へのナビゲーション ----
+    const nextSubjectsWrap = document.getElementById('result-next-subjects');
+    if (nextSubjectsWrap) {
+      const SUBJECT_LIST = [
+        { name: '保育原理',      url: '/flashcard/hoiku-genri/' },
+        { name: '教育原理',      url: '/flashcard/kyoiku-genri/' },
+        { name: '社会福祉',      url: '/flashcard/shakai-fukushi/' },
+        { name: '子ども家庭福祉', url: '/flashcard/kodomo-katei-fukushi/' },
+        { name: '社会的養護',    url: '/flashcard/shakaiteki-yogo/' },
+        { name: '保育の心理学',  url: '/flashcard/hoiku-shinrigaku/' },
+        { name: '子どもの保健',  url: '/flashcard/kodomo-hoken/' },
+        { name: '子どもの食と栄養', url: '/flashcard/shokuji-eiyou/' },
+        { name: '保育実習理論',  url: '/flashcard/jisshu-riron/' },
+      ];
+      const currentSubject = window.PRESET_SUBJECT || null;
+      const others = currentSubject
+        ? SUBJECT_LIST.filter(s => s.name !== currentSubject)
+        : SUBJECT_LIST;
+      nextSubjectsWrap.innerHTML = `
+        <div class="result-next-subjects-inner">
+          <h3 class="result-next-title">次に学ぶ科目はこちら</h3>
+          <div class="subject-links-grid">
+            ${others.map(s => `<a href="${s.url}" class="subject-link-card">${s.name} <span>一問一答</span></a>`).join('')}
+          </div>
+        </div>`;
+    }
+
     showScreen('screen-result');
   }
 
