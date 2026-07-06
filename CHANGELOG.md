@@ -2,6 +2,15 @@
 
 ## 2026-07-06
 
+### SEO: トップページのtitle・meta descriptionをCTR改善向けに更新
+
+- `<title>` に「今すぐ」「全9科目」を追加しクリックを促す文言に変更
+- `meta name="description"` にベネフィット（正答率記録・弱点克服）と具体数字を前面に
+- `og:title` / `og:description` / `twitter:title` / `twitter:description` / `ld+json` も同様に更新
+- 対象ファイル：`flashcard/index.html`
+
+---
+
 ### feat: SEOレポートに直帰率・滞在時間・エンゲージメント率・PV/セッション比を追加
 
 - `.github/scripts/seo_report.js` に4つの新しいメトリクスを追加
