@@ -2,6 +2,14 @@
 
 ## 2026-07-06
 
+### SEO: 全9科目ページのh1に「保育士試験」を追加
+
+- 全9科目ページの `<h1>` タグを「○○ 一問一答」から「保育士試験 ○○ 一問一答」に変更
+- 科目別ページのGSC検索流入が少ない問題に対応し、「保育士試験 ○○ 一問一答」キーワードでの検索評価を強化
+- 対象ファイル：`hoiku-genri`, `kyoiku-genri`, `shakai-fukushi`, `kodomo-katei-fukushi`, `shakaiteki-yogo`, `hoiku-shinrigaku`, `kodomo-hoken`, `shokuji-eiyou`, `jisshu-riron`
+
+---
+
 ### SEO: トップページのtitle・meta descriptionをCTR改善向けに更新
 
 - `<title>` に「今すぐ」「全9科目」を追加しクリックを促す文言に変更
