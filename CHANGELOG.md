@@ -2,24 +2,22 @@
 
 ## 2026-07-06
 
+### feat: SEOレポートに直帰率・滞在時間・エンゲージメント率・PV/セッション比を追加
+
+- `.github/scripts/seo_report.js` に4つの新しいメトリクスを追加
+- `fetchGA4ByPage()` に bounceRate・averageSessionDuration・engagementRate を追加
+- 流入元内訳テーブルに PV/セッション比・直帰率・平均滞在時間・エンゲージメント率の列を追加
+- ページ別閲覧数テーブルに同指標の列を追加
+- `fetchGSCByPage` の rowLimit を 20→25 に拡大
+- GitHub Issue・HTMLメール両方の出力に反映
+
+---
+
 ### docs: CLAUDE.mdに開発ルール追加
 
 - SEO施策実施時の `CHANGELOG.md` 更新ルールを追加
 - 毎回のマージ時にファイルを更新することを明記
 - 開発チーム内での情報統一を強化
-
----
-
-## 2026-06-29
-
-### feat: 結果画面に「次に学ぶ科目はこちら」回遊導線を追加
-
-- クイズ終了後の結果画面に他科目へのリンクセクションを追加
-- 現在取り組んだ科目を除いた8科目をリンク表示
-- 全9ページ（トップページを含む）に対応
-- `flashcard/app.js` に回遊導線の生成ロジックを追加
-- 各HTMLファイルに `#next-subjects-section` を追加
-- `flashcard/style.css` にスタイルを追加
 
 ---
 

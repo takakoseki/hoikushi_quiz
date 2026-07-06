@@ -111,7 +111,7 @@ async function fetchGSCByPage(auth, startDate, endDate) {
         startDate,
         endDate,
         dimensions: ['page'],
-        rowLimit: 20,
+        rowLimit: 25,
       },
     });
     return res.data.rows || [];
@@ -131,6 +131,9 @@ async function fetchGA4(auth, startDate, endDate) {
         metrics: [
           { name: 'sessions' },
           { name: 'screenPageViews' },
+          { name: 'bounceRate' },
+          { name: 'averageSessionDuration' },
+          { name: 'engagementRate' },
         ],
         dimensions: [{ name: 'sessionDefaultChannelGroup' }],
       },
@@ -146,6 +149,9 @@ async function fetchGA4(auth, startDate, endDate) {
       channel: channelMap[r.dimensionValues[0].value] || r.dimensionValues[0].value,
       sessions: parseInt(r.metricValues[0].value),
       pageviews: parseInt(r.metricValues[1].value),
+      bounceRate: parseFloat(r.metricValues[2].value),
+      avgDuration: parseFloat(r.metricValues[3].value),
+      engagementRate: parseFloat(r.metricValues[4].value),
     })).sort((a, b) => b.sessions - a.sessions);
     return rows;
   } catch (e) {
@@ -164,6 +170,9 @@ async function fetchGA4ByPage(auth, startDate, endDate) {
         metrics: [
           { name: 'sessions' },
           { name: 'screenPageViews' },
+          { name: 'bounceRate' },
+          { name: 'averageSessionDuration' },
+          { name: 'engagementRate' },
         ],
         dimensions: [{ name: 'pagePath' }],
         orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
@@ -174,6 +183,9 @@ async function fetchGA4ByPage(auth, startDate, endDate) {
       path: r.dimensionValues[0].value,
       sessions: parseInt(r.metricValues[0].value),
       pageviews: parseInt(r.metricValues[1].value),
+      bounceRate: parseFloat(r.metricValues[2].value),
+      avgDuration: parseFloat(r.metricValues[3].value),
+      engagementRate: parseFloat(r.metricValues[4].value),
     }));
   } catch (e) {
     console.error('GA4 page error:', e.message);
@@ -257,16 +269,24 @@ async function sendEmail(reportData, issueBody) {
     <tr style="background:#f0f8ff;">${tdl('ページビュー（GA4）')}${td(curr.pageviews)}${td(prev.pageviews)}${td(diffLabel(curr.pageviews, prev.pageviews))}</tr>`;
 
   const channelHtml = ga4Rows.length > 0
-    ? ga4Rows.map(r => `<tr>${tdl(r.channel)}${td(r.sessions)}</tr>`).join('')
-    : `<tr><td colspan="2" style="padding:4px 8px;">データなし</td></tr>`;
+    ? ga4Rows.map(r => {
+        const pvPerSession = r.sessions > 0 ? (r.pageviews / r.sessions).toFixed(2) : '–';
+        const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+        return `<tr>${tdl(r.channel)}${td(r.sessions)}${td(pvPerSession)}${td(isNaN(r.bounceRate) ? '–' : (r.bounceRate * 100).toFixed(1) + '%')}${td(dur)}${td(isNaN(r.engagementRate) ? '–' : (r.engagementRate * 100).toFixed(1) + '%')}</tr>`;
+      }).join('')
+    : `<tr><td colspan="6" style="padding:4px 8px;">データなし</td></tr>`;
 
   const deviceHtml = ga4DeviceRows.length > 0
     ? ga4DeviceRows.map(r => `<tr>${tdl(r.device)}${td(r.sessions)}</tr>`).join('')
     : `<tr><td colspan="2" style="padding:4px 8px;">データなし</td></tr>`;
 
   const ga4PageHtml = ga4PageRows.length > 0
-    ? ga4PageRows.map(r => `<tr>${tdl(r.path)}${td(r.sessions)}${td(r.pageviews)}</tr>`).join('')
-    : `<tr><td colspan="3" style="padding:4px 8px;">データなし</td></tr>`;
+    ? ga4PageRows.map(r => {
+        const pvPerSession = r.sessions > 0 ? (r.pageviews / r.sessions).toFixed(2) : '–';
+        const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+        return `<tr>${tdl(r.path)}${td(r.sessions)}${td(r.pageviews)}${td(pvPerSession)}${td(isNaN(r.bounceRate) ? '–' : (r.bounceRate * 100).toFixed(1) + '%')}${td(dur)}${td(isNaN(r.engagementRate) ? '–' : (r.engagementRate * 100).toFixed(1) + '%')}</tr>`;
+      }).join('')
+    : `<tr><td colspan="7" style="padding:4px 8px;">データなし</td></tr>`;
 
   const pageHtml = topPages.length > 0
     ? topPages.map(r => `<tr>${tdl(shortUrl(r.keys[0]))}${td(r.clicks)}${td(r.impressions)}${td((r.ctr*100).toFixed(1)+'%')}${td(r.position.toFixed(1)+'位')}</tr>`).join('')
@@ -291,7 +311,7 @@ async function sendEmail(reportData, issueBody) {
 
 <h3>📱 流入元内訳（GA4）</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#f0f0f0;">${th('チャネル')}${th('セッション')}</tr>
+  <tr style="background:#f0f0f0;">${th('チャネル')}${th('セッション')}${th('PV/セッション')}${th('直帰率')}${th('平均滞在時間')}${th('エンゲージメント率')}</tr>
   ${channelHtml}
 </table>
 
@@ -303,7 +323,7 @@ async function sendEmail(reportData, issueBody) {
 
 <h3>📄 ページ別閲覧数（GA4）</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#f0f0f0;">${th('ページ')}${th('セッション')}${th('PV')}</tr>
+  <tr style="background:#f0f0f0;">${th('ページ')}${th('セッション')}${th('PV')}${th('PV/セッション')}${th('直帰率')}${th('平均滞在時間')}${th('エンゲージメント率')}</tr>
   ${ga4PageHtml}
 </table>
 
@@ -464,12 +484,16 @@ async function main() {
   ];
 
   lines.push('### 📱 流入元内訳（GA4）');
-  lines.push('| チャネル | セッション |');
-  lines.push('|---------|-----------|');
+  lines.push('| チャネル | セッション | PV/セッション | 直帰率 | 平均滞在時間 | エンゲージメント率 |');
+  lines.push('|---------|-----------|--------------|--------|-------------|-----------------|');
   if (ga4Rows.length > 0) {
-    ga4Rows.forEach(r => lines.push(`| ${r.channel} | ${r.sessions} |`));
+    ga4Rows.forEach(r => {
+      const pvPerSession = r.sessions > 0 ? (r.pageviews / r.sessions).toFixed(2) : '–';
+      const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+      lines.push(`| ${r.channel} | ${r.sessions} | ${pvPerSession} | ${isNaN(r.bounceRate) ? '–' : (r.bounceRate * 100).toFixed(1) + '%'} | ${dur} | ${isNaN(r.engagementRate) ? '–' : (r.engagementRate * 100).toFixed(1) + '%'} |`);
+    });
   } else {
-    lines.push('| データなし | – |');
+    lines.push('| データなし | – | – | – | – | – |');
   }
   lines.push('');
 
@@ -483,9 +507,13 @@ async function main() {
 
   if (ga4PageRows.length > 0) {
     lines.push('### 📄 ページ別閲覧数（GA4）');
-    lines.push('| ページ | セッション | PV |');
-    lines.push('|-------|-----------|-----|');
-    ga4PageRows.forEach(r => lines.push(`| ${r.path} | ${r.sessions} | ${r.pageviews} |`));
+    lines.push('| ページ | セッション | PV | PV/セッション | 直帰率 | 平均滞在時間 | エンゲージメント率 |');
+    lines.push('|-------|-----------|-----|--------------|--------|-------------|-----------------|');
+    ga4PageRows.forEach(r => {
+      const pvPerSession = r.sessions > 0 ? (r.pageviews / r.sessions).toFixed(2) : '–';
+      const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+      lines.push(`| ${r.path} | ${r.sessions} | ${r.pageviews} | ${pvPerSession} | ${isNaN(r.bounceRate) ? '–' : (r.bounceRate * 100).toFixed(1) + '%'} | ${dur} | ${isNaN(r.engagementRate) ? '–' : (r.engagementRate * 100).toFixed(1) + '%'} |`);
+    });
     lines.push('');
   }
 
