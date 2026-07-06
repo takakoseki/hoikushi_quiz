@@ -2,6 +2,17 @@
 
 ## 2026-07-06
 
+### feat: SEOレポートに直帰率・滞在時間・エンゲージメント率・PV/セッション比を追加
+
+- `.github/scripts/seo_report.js` に4つの新しいメトリクスを追加
+- `fetchGA4ByPage()` に bounceRate・averageSessionDuration・engagementRate を追加
+- 流入元内訳テーブルに PV/セッション比・直帰率・平均滞在時間・エンゲージメント率の列を追加
+- ページ別閲覧数テーブルに同指標の列を追加
+- `fetchGSCByPage` の rowLimit を 20→25 に拡大
+- GitHub Issue・HTMLメール両方の出力に反映
+
+---
+
 ### docs: CLAUDE.mdに開発ルール追加
 
 - SEO施策実施時の `CHANGELOG.md` 更新ルールを追加
