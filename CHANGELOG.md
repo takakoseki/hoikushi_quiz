@@ -2,6 +2,26 @@
 
 ## 2026-07-13
 
+### feat: 全9科目ページに「頻出テーマと学習ポイント」セクションを追加
+
+- 各科目ページのsubject-intro直下に3テーマ×（タイトル・解説・キーワードタグ）のカードセクションを追加
+- 科目別の検索流入強化とページコンテンツ充実を目的とした新機能
+- 全9科目のHTMLファイルにカード要素を実装（各ファイル25行追加）
+- style.cssに新規スタイルルール（57行追加）を追加
+- 対象ファイル：
+  - `flashcard/hoiku-genri/index.html`
+  - `flashcard/kyoiku-genri/index.html`
+  - `flashcard/shakai-fukushi/index.html`
+  - `flashcard/kodomo-katei-fukushi/index.html`
+  - `flashcard/shakaiteki-yogo/index.html`
+  - `flashcard/hoiku-shinrigaku/index.html`
+  - `flashcard/kodomo-hoken/index.html`
+  - `flashcard/shokuji-eiyou/index.html`
+  - `flashcard/jisshu-riron/index.html`
+  - `flashcard/style.css`
+
+---
+
 ### SEO: 「保育士試験 無料」と「保育の心理学 一問一答」のキーワード強化
 
 - 保育の心理学ページの説明文（subject-intro）を充実
