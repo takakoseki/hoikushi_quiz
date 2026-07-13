@@ -36,6 +36,18 @@ const SUBJECT_HASHTAGS = {
   '保育実習理論':   '#保育実習理論',
 };
 
+const SUBJECT_TIPS = {
+  '保育原理':       '保育所保育指針の改定ポイントと倉橋惣三・フレーベルなど歴史上の人物はセットで覚えよう！',
+  '教育原理':       '教育基本法と学校教育法の違い、ルソー・ペスタロッチ・フレーベルの思想を人物ごとに整理しよう！',
+  '社会福祉':       'バイスティックの7原則（受容・自己決定・秘密保持など）は毎年頻出！声に出して覚えよう✅',
+  '子ども家庭福祉': '子どもの権利条約の4つの権利と、里親・児童相談所の役割を整理しよう！',
+  '社会的養護':     '里親の4種類（養育・専門・養子縁組・親族）と施設種別の違いを区別して覚えよう！',
+  '保育の心理学':   'ピアジェ・ヴィゴツキー・エリクソン・ボウルビィの理論を人物名とセットで整理しよう！',
+  '子どもの保健':   '感染症の出席停止期間と予防接種の定期・任意の区別は毎年頻出！繰り返し確認しよう✅',
+  '子どもの食と栄養': '特定原材料8品目（卵・乳・小麦・えび・かに・落花生・そば・くるみ）をまず完璧に覚えよう！',
+  '保育実習理論':   '楽典（移調・コードネーム・拍子記号）は繰り返し練習が合格への近道！音符の長さも確認しよう✅',
+};
+
 const SUBJECT_URLS = {
   '保育原理':       'https://hoikushi-quiz.com/flashcard/hoiku-genri/',
   '教育原理':       'https://hoikushi-quiz.com/flashcard/kyoiku-genri/',
@@ -226,17 +238,30 @@ function buildXPostTweets(q) {
     for (let j = 1; j < resplit.length; j++) {
       tweets.push(`${continuationHeader}${resplit[j]}`);
     }
-    return [...tweets, buildCtaTweet(subjectTag)];
+    const tip = buildTipTweet(q);
+    return [...tweets, ...(tip ? [tip] : []), buildCtaTweet(subjectTag)];
   }
 
   for (const seg of continuationSegs) {
     tweets.push(`${continuationHeader}${seg}`);
   }
 
+  // 学習ポイント
+  const tipTweet = buildTipTweet(q);
+  if (tipTweet) tweets.push(tipTweet);
+
   // 最後: CTA
   tweets.push(buildCtaTweet(subjectTag));
 
   return tweets;
+}
+
+function buildTipTweet(q) {
+  const tip = SUBJECT_TIPS[q.subject];
+  const subjectUrl = SUBJECT_URLS[q.subject] || SITE_URL;
+  if (!tip) return null;
+  const text = `📌【保育士試験 ${q.subject}】今日の学習ポイント\n\n${tip}\n\n${subjectUrl}`;
+  return charCount(text) <= TWEET_LIMIT ? text : null;
 }
 
 function buildCtaTweet(subjectTag) {
