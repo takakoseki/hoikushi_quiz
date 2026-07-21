@@ -141,7 +141,7 @@ function buildQuestionText(q) {
 function buildAnswerText(q) {
   const correctLabel = LABELS[q.answer];
   const correctText = q.choices[q.answer];
-  return `正解：${correctLabel}. ${correctText}\n\n【解説】\n${q.explanation}\n\n📝 全610問無料で練習！\n${SITE_URL}`;
+  return `正解：${correctLabel}. ${correctText}\n\n【解説】\n${q.explanation}\n\n📝 全655問無料で練習！\n${SITE_URL}`;
 }
 
 // X（Twitter）投稿用のスレッドを生成（各ツイートは140文字以内）
@@ -265,7 +265,7 @@ function buildTipTweet(q) {
 }
 
 function buildCtaTweet(subjectTag) {
-  return `📚 全610問無料で練習できます！\n${X_URL}\n\n#保育士試験 #保育士試験2026 #保育士勉強垢 ${subjectTag}`.trimEnd();
+  return `📚 全655問無料で練習できます！\n${X_URL}\n\n#保育士試験 #保育士試験2026 #保育士勉強垢 ${subjectTag}`.trimEnd();
 }
 
 function buildPollSection(q) {

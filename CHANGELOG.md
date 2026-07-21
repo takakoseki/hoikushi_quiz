@@ -2,6 +2,24 @@
 
 ## 2026-07-21
 
+### feat: 問題データを45問追加（ID 611〜655、全655問に）
+
+- `flashcard/questions.js` の `QUESTIONS` 配列に問題を45問追加（全610問→全655問に）
+- 追加内訳（全9科目）：保育原理6・教育原理6・社会的養護5・子どもの食と栄養5・子ども家庭福祉5・子どもの保健5・社会福祉5・保育の心理学4・保育実習理論4
+- 追加後の科目別累計：保育原理73・教育原理73・社会福祉73・子ども家庭福祉73・保育の心理学73・子どもの保健73・保育実習理論73・社会的養護72・子どもの食と栄養72
+- 実装後に `grep -oE 'subject: "[^"]+"' flashcard/questions.js | sort | uniq -c` で実データと突き合わせ済み（ルール11）
+- あわせてサイト各所の問題数表記を実データ（全655問・科目別）に統一
+  - トップページ `flashcard/index.html`：`610問`→`655問`
+  - 各科目ページの自称問題数・相互リンクカードを実データに更新
+  - 自動ツイート `.github/scripts/daily_tweet.js`：`全610問`→`全655問`
+- 対象ファイル：`flashcard/questions.js`、`flashcard/index.html`、`flashcard/<全9科目>/index.html`、`.github/scripts/daily_tweet.js`
+
+### docs: 問題追加時のカウント突き合わせルール（ルール11）を CLAUDE.md に追加
+
+- 問題を追加したバッチごとに進捗表を作成する際は、実装後に `grep -oE 'subject: "[^"]+"' flashcard/questions.js | sort | uniq -c` で実データと突き合わせ、カウント誤りを検出することを規定
+- 進捗表の累計ズレによる以降の影響を防ぐため、開発ルール11として明記
+- 対象ファイル：`CLAUDE.md`
+
 ### feat: 問題データを75問追加（ID 536〜610）
 
 - `flashcard/questions.js` の `QUESTIONS` 配列に問題を75問追加（全610問に）
