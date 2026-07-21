@@ -2,6 +2,14 @@
 
 ## 2026-07-21
 
+### fix: 問題数表記の見落とし箇所を修正（トップページの科目カード・PRESET_SUBJECT_COUNT）
+
+- 過去2回の問題数一括置換で見落としていた2種類の表示箇所を実データ(73問/72問)に修正
+  - `flashcard/index.html` の「科目別に学習する」セクション内、科目カード9件（`535問`/`610問`等の文字列置換では拾えていなかった）
+  - 各科目ページのインラインスクリプト `window.PRESET_SUBJECT_COUNT`（`app.js`がページ読込時にこの値でサブタイトル表示を上書きするため、HTML本文を直しても画面上は古い値に戻っていた）
+  - `shakaiteki-yogo`・`hoiku-shinrigaku` の本文中に埋め込まれていた別パターンの古い問題数（59問）
+- 対象ファイル：`flashcard/index.html`、`flashcard/<全9科目>/index.html`
+
 ### feat: 問題データを45問追加（ID 611〜655、全655問に）
 
 - `flashcard/questions.js` の `QUESTIONS` 配列に問題を45問追加（全610問→全655問に）
