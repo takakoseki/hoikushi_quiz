@@ -9,6 +9,15 @@
 - 問題数増加によるコンテンツ充実・検索流入強化を目的
 - 対象ファイル：`flashcard/questions.js`
 
+### fix: 問題数の表記を実データ（全610問／科目別）に統一
+
+- 問題数追加に伴い、サイト各所にハードコードされていた問題数を実データに更新
+- トップページ `flashcard/index.html`：`535問`→`610問`（title・description・OGP・Twitter・JSON-LD・サブタイトル・FAQ）
+- 各科目ページの自称問題数を実データに更新（保育原理67・教育原理67・社会福祉68・子ども家庭福祉68・社会的養護67・保育の心理学69・子どもの保健68・子どもの食と栄養67・保育実習理論69）
+- 各科目ページ下部の相互リンクカードの問題数も実データに統一
+- 自動ツイート `.github/scripts/daily_tweet.js`：`全460問`→`全610問`
+- 対象ファイル：`flashcard/index.html`、`flashcard/<全9科目>/index.html`、`.github/scripts/daily_tweet.js`
+
 ---
 
 ## 2026-07-13
