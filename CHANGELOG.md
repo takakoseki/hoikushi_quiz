@@ -2,6 +2,18 @@
 
 ## 2026-07-21
 
+### feat: 問題データを45問追加（ID 656〜700、全700問に）
+
+- `flashcard/questions.js` の `QUESTIONS` 配列に問題を45問追加（全655問→全700問に）
+- 追加内訳（全9科目）：教育原理6・保育原理5・社会福祉5・子ども家庭福祉5・保育の心理学5・子どもの保健5・社会的養護5・子どもの食と栄養5・保育実習理論4
+- 追加後の科目別累計：教育原理79・保育原理78・社会福祉78・子ども家庭福祉78・保育の心理学78・子どもの保健78・社会的養護77・子どもの食と栄養77・保育実習理論77
+- 実装後に `grep -oE 'subject: "[^"]+"' flashcard/questions.js | sort | uniq -c` で実データと突き合わせ済み（ルール11）
+- あわせてサイト各所の問題数表記を実データ（全700問・科目別）に統一（ルール12を踏まえ、見落としがちな箇所を網羅的に更新）
+  - トップページ `flashcard/index.html`：総数`655問`→`700問`、および「科目別に学習する」の科目カード9件
+  - 各科目ページ：title/description/OGP/Twitter/JSON-LD/サブタイトルの自称問題数、`window.PRESET_SUBJECT_COUNT`、相互リンクカード、本文中の埋め込み数値（社会的養護・保育の心理学）
+  - 自動ツイート `.github/scripts/daily_tweet.js`：`全655問`→`全700問`
+- 対象ファイル：`flashcard/questions.js`、`flashcard/index.html`、`flashcard/<全9科目>/index.html`、`.github/scripts/daily_tweet.js`
+
 ### fix: 問題数表記の見落とし箇所を修正（トップページの科目カード・PRESET_SUBJECT_COUNT）
 
 - 過去2回の問題数一括置換で見落としていた2種類の表示箇所を実データ(73問/72問)に修正
