@@ -60,6 +60,92 @@
     console.warn('Supabase の初期化に失敗しました。問題報告機能のみ無効になります。', e);
   }
 
+  // ---- アフィリエイト訴求 ----
+  // url が空の案件は描画されない。提携が承認され次第 url を設定するだけで有効化できる。
+  const PROMOS = {
+    // オンライン音楽教室（実技試験の音楽対策）
+    music: {
+      url: '//af.moshimo.com/af/c/click?a_id=5716975&p_id=5100&pc_id=13798&pl_id=66997&url=https%3A%2F%2Fwww.allconne.jp%2F',
+      impression: '//i.moshimo.com/af/i/impression?a_id=5716975&p_id=5100&pc_id=13798&pl_id=66997',
+      cta: '無料体験レッスンを見る',
+      subjects: ['保育実習理論'],   // 結果画面で表示する対象科目
+      page: {
+        title: '実技試験のピアノに不安はありませんか？',
+        body: '楽典が解けることと、実際に弾き歌いができることは別のスキルです。音楽経験がない方や、独学での練習に限界を感じている方は、オンラインレッスンで短期間だけ集中的に対策する方法もあります。',
+      },
+      result: {
+        title: '楽典は解けても、実技のピアノは別物です',
+        body: '保育実習理論を学習中の方へ。実技試験で音楽表現を選ぶ場合、ピアノなどでの弾き歌いが課されます。独学が難しいと感じたら、オンラインの無料体験から試してみる方法もあります。',
+      },
+    },
+    // 以下は提携審査中。承認後に url / impression を設定すると自動的に表示される。
+    course: { url: '', impression: '', cta: '', subjects: [], page: null, result: null },
+    career: { url: '', impression: '', cta: '', subjects: [], page: null, result: null },
+  };
+
+  // 訴求カードを描画する。url 未設定・文言未設定の場合は何も描画しない。
+  function renderPromo(container, promoKey, variant) {
+    if (!container) return;
+    container.innerHTML = '';
+    const promo = PROMOS[promoKey];
+    if (!promo || !promo.url) return;
+    const copy = promo[variant];
+    if (!copy) return;
+
+    const card = document.createElement('div');
+    card.className = 'promo-card';
+
+    const pr = document.createElement('span');
+    pr.className = 'promo-pr';
+    pr.textContent = 'PR';
+
+    const title = document.createElement('p');
+    title.className = 'promo-title';
+    title.textContent = copy.title;
+
+    const body = document.createElement('p');
+    body.className = 'promo-body';
+    body.textContent = copy.body;
+
+    const link = document.createElement('a');
+    link.className = 'promo-link';
+    link.href = promo.url;
+    link.target = '_blank';
+    link.rel = 'sponsored nofollow noopener';
+    link.textContent = promo.cta;
+    link.addEventListener('click', function () {
+      // 計測が失敗してもリンク遷移を妨げない
+      try {
+        if (typeof gtag === 'function') {
+          gtag('event', 'affiliate_click', {
+            promo_id: promoKey,
+            placement: variant,
+            subject: state.selectedSubject || (window.PRESET_SUBJECT || 'unknown'),
+          });
+        }
+      } catch (e) { /* 計測失敗は無視 */ }
+    });
+
+    card.appendChild(pr);
+    card.appendChild(title);
+    card.appendChild(body);
+    card.appendChild(link);
+
+    // ASPのインプレッション計測タグ
+    if (promo.impression) {
+      const px = document.createElement('img');
+      px.src = promo.impression;
+      px.width = 1;
+      px.height = 1;
+      px.alt = '';
+      px.loading = 'lazy';
+      px.style.border = 'none';
+      card.appendChild(px);
+    }
+
+    container.appendChild(card);
+  }
+
   // ---- State ----
   let state = {
     selectedSubject: 'all',
@@ -391,6 +477,18 @@
         </div>`;
     }
 
+    // ---- 訴求カード（明示的に対象科目を選んだときのみ表示） ----
+    // 「全科目」で解いた場合は対象外（案A）。無関係な科目の学習者には出さない。
+    const promoResult = document.getElementById('promo-result');
+    if (promoResult) {
+      promoResult.innerHTML = '';
+      const key = Object.keys(PROMOS).find(function (k) {
+        const p = PROMOS[k];
+        return p.url && p.subjects.indexOf(state.selectedSubject) !== -1;
+      });
+      if (key) renderPromo(promoResult, key, 'result');
+    }
+
     showScreen('screen-result');
   }
 
@@ -509,6 +607,11 @@
     dt.addEventListener('click', function() {
       dt.closest('.faq-item').classList.toggle('open');
     });
+  });
+
+  // ページ内の訴求枠を描画（data-promo で案件を指定。未提携なら何も出ない）
+  document.querySelectorAll('.promo-section[data-promo]').forEach(function (el) {
+    renderPromo(el, el.getAttribute('data-promo'), 'page');
   });
 
 })();
