@@ -83,14 +83,34 @@
     career: { url: '', impression: '', cta: '', subjects: [], page: null, result: null },
   };
 
+  // 結果画面での表示上限（1セッションあたり・案件ごと）。
+  // 繰り返し表示はクリック率を上げず体験だけを損なうため上限を設ける。
+  const PROMO_SESSION_LIMIT = 3;
+  const promoShownMemory = {};   // sessionStorage が使えない環境向けのフォールバック
+
+  function getPromoShown(key) {
+    try {
+      const v = sessionStorage.getItem('promo_shown_' + key);
+      if (v !== null) return parseInt(v, 10) || 0;
+    } catch (e) { /* プライベートモード等では sessionStorage を使えない */ }
+    return promoShownMemory[key] || 0;
+  }
+
+  function incrementPromoShown(key) {
+    const next = getPromoShown(key) + 1;
+    promoShownMemory[key] = next;
+    try { sessionStorage.setItem('promo_shown_' + key, String(next)); } catch (e) { /* 無視 */ }
+  }
+
   // 訴求カードを描画する。url 未設定・文言未設定の場合は何も描画しない。
+  // 実際に描画したときだけ true を返す（表示回数のカウント用）。
   function renderPromo(container, promoKey, variant) {
-    if (!container) return;
+    if (!container) return false;
     container.innerHTML = '';
     const promo = PROMOS[promoKey];
-    if (!promo || !promo.url) return;
+    if (!promo || !promo.url) return false;
     const copy = promo[variant];
-    if (!copy) return;
+    if (!copy) return false;
 
     const card = document.createElement('div');
     card.className = 'promo-card';
@@ -144,6 +164,7 @@
     }
 
     container.appendChild(card);
+    return true;
   }
 
   // ---- State ----
@@ -486,7 +507,11 @@
         const p = PROMOS[k];
         return p.url && p.subjects.indexOf(state.selectedSubject) !== -1;
       });
-      if (key) renderPromo(promoResult, key, 'result');
+      // 「もう一度」「間違えた問題を復習」で結果画面を繰り返し見る利用者に
+      // 毎回同じ広告を見せないよう、1セッションあたりの表示回数を制限する。
+      if (key && getPromoShown(key) < PROMO_SESSION_LIMIT) {
+        if (renderPromo(promoResult, key, 'result')) incrementPromoShown(key);
+      }
     }
 
     showScreen('screen-result');
