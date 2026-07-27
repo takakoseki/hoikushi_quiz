@@ -797,6 +797,14 @@ body {
 }
 .exam-item b { display: block; font-size: 0.81rem; color: var(--c-primary); margin-bottom: 4px; }
 .exam-item span { font-size: 0.77rem; color: var(--c-text-sub); line-height: 1.75; }
+.exam-more { margin-top: 10px; }
+.exam-more a {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--c-primary);
+  text-decoration: none;
+  border-bottom: 1px solid #b8d4e3;
+}
 .exam-note {
   font-size: 0.72rem;
   color: #8a8175;

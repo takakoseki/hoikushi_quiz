@@ -104,7 +104,9 @@
 
   // 訴求カードを描画する。url 未設定・文言未設定の場合は何も描画しない。
   // 実際に描画したときだけ true を返す（表示回数のカウント用）。
-  function renderPromo(container, promoKey, variant) {
+  // variant   … 使用する文言（'page' | 'result'）
+  // placement … 計測用の設置場所ID。同じ variant でも設置場所を区別するために使う
+  function renderPromo(container, promoKey, variant, placement) {
     if (!container) return false;
     container.innerHTML = '';
     const promo = PROMOS[promoKey];
@@ -139,7 +141,7 @@
         if (typeof gtag === 'function') {
           gtag('event', 'affiliate_click', {
             promo_id: promoKey,
-            placement: variant,
+            placement: placement || variant,
             subject: state.selectedSubject || (window.PRESET_SUBJECT || 'unknown'),
           });
         }
@@ -510,7 +512,8 @@
       // 「もう一度」「間違えた問題を復習」で結果画面を繰り返し見る利用者に
       // 毎回同じ広告を見せないよう、1セッションあたりの表示回数を制限する。
       if (key && getPromoShown(key) < PROMO_SESSION_LIMIT) {
-        if (renderPromo(promoResult, key, 'result')) incrementPromoShown(key);
+        const placement = promoResult.getAttribute('data-placement') || 'result';
+        if (renderPromo(promoResult, key, 'result', placement)) incrementPromoShown(key);
       }
     }
 
@@ -634,9 +637,10 @@
     });
   });
 
-  // ページ内の訴求枠を描画（data-promo で案件を指定。未提携なら何も出ない）
+  // ページ内の訴求枠を描画（data-promo で案件、data-placement で設置場所を指定）
+  // 未提携（url 未設定）の案件は何も描画されない
   document.querySelectorAll('.promo-section[data-promo]').forEach(function (el) {
-    renderPromo(el, el.getAttribute('data-promo'), 'page');
+    renderPromo(el, el.getAttribute('data-promo'), 'page', el.getAttribute('data-placement') || 'page');
   });
 
 })();
