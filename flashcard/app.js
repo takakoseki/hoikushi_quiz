@@ -479,7 +479,13 @@
       btn.setAttribute('aria-pressed', match ? 'true' : 'false');
     });
     var subtitle = document.querySelector('.app-subtitle');
-    if (subtitle) subtitle.textContent = window.PRESET_SUBJECT + ' · ' + window.PRESET_SUBJECT_COUNT + '問 · 4択形式';
+    if (subtitle) {
+      // 問題数は QUESTIONS から算出する（固定値だと問題追加時に古い値が残るため）
+      var subjectCount = QUESTIONS.filter(function(q) {
+        return q.subject === window.PRESET_SUBJECT;
+      }).length;
+      subtitle.textContent = window.PRESET_SUBJECT + ' · ' + subjectCount + '問 · 4択形式';
+    }
   }
   initStartScreen();
 

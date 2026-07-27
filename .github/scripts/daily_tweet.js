@@ -16,6 +16,9 @@ const QUESTIONS = require(tmpPath);
 const daysSinceEpoch = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
 const question = QUESTIONS[daysSinceEpoch % QUESTIONS.length];
 
+// 総問題数は QUESTIONS から算出する（固定値だと問題追加時に古い値が残るため）
+const TOTAL_QUESTIONS = QUESTIONS.length;
+
 const LABELS = ['A', 'B', 'C', 'D'];
 const SITE_URL = 'https://hoikushi-quiz.com/flashcard/';
 const X_URL = 'https://hoikushi-quiz.com/flashcard/?utm_source=twitter&utm_medium=social&utm_campaign=daily_question';
@@ -141,7 +144,7 @@ function buildQuestionText(q) {
 function buildAnswerText(q) {
   const correctLabel = LABELS[q.answer];
   const correctText = q.choices[q.answer];
-  return `正解：${correctLabel}. ${correctText}\n\n【解説】\n${q.explanation}\n\n📝 全460問無料で練習！\n${SITE_URL}`;
+  return `正解：${correctLabel}. ${correctText}\n\n【解説】\n${q.explanation}\n\n📝 全${TOTAL_QUESTIONS}問無料で練習！\n${SITE_URL}`;
 }
 
 // X（Twitter）投稿用のスレッドを生成（各ツイートは140文字以内）
@@ -265,7 +268,7 @@ function buildTipTweet(q) {
 }
 
 function buildCtaTweet(subjectTag) {
-  return `📚 全460問無料で練習できます！\n${X_URL}\n\n#保育士試験 #保育士試験2026 #保育士勉強垢 ${subjectTag}`.trimEnd();
+  return `📚 全${TOTAL_QUESTIONS}問無料で練習できます！\n${X_URL}\n\n#保育士試験 #保育士試験2026 #保育士勉強垢 ${subjectTag}`.trimEnd();
 }
 
 function buildPollSection(q) {
