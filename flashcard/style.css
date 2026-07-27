@@ -777,3 +777,68 @@ body {
   border-radius: 4px;
   padding: 2px 8px;
 }
+
+/* ---- 実技試験セクション（保育実習理論ページ） ---- */
+.exam-section { margin-top: 22px; }
+.exam-section h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--c-primary);
+  letter-spacing: 0.05em;
+  margin-bottom: 9px;
+}
+.exam-lead { font-size: 0.79rem; color: var(--c-text-sub); line-height: 1.75; margin-bottom: 12px; }
+.exam-grid { display: flex; flex-direction: column; gap: 8px; }
+.exam-item {
+  background: #f0f6fa;
+  border: 1px solid #b8d4e3;
+  border-radius: 9px;
+  padding: 11px 13px;
+}
+.exam-item b { display: block; font-size: 0.81rem; color: var(--c-primary); margin-bottom: 4px; }
+.exam-item span { font-size: 0.77rem; color: var(--c-text-sub); line-height: 1.75; }
+.exam-note {
+  font-size: 0.72rem;
+  color: #8a8175;
+  line-height: 1.7;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: #faf8f5;
+  border-radius: 6px;
+}
+
+/* ---- アフィリエイト訴求カード ---- */
+.promo-section { margin-top: 20px; }
+.promo-card {
+  border: 1px solid #dcd7cd;
+  background: #faf8f5;
+  border-radius: 10px;
+  padding: 15px 16px;
+}
+.promo-pr {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #8a8175;
+  border: 1px solid #c9c2b6;
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-bottom: 9px;
+}
+.promo-title { font-size: 0.86rem; font-weight: 700; color: var(--c-text); margin-bottom: 7px; }
+.promo-body { font-size: 0.78rem; color: var(--c-text-sub); line-height: 1.75; margin-bottom: 12px; }
+.promo-link {
+  display: inline-block;
+  font-size: 0.79rem;
+  font-weight: 600;
+  color: var(--c-primary);
+  text-decoration: none;
+  border: 1px solid var(--c-primary);
+  border-radius: 7px;
+  padding: 7px 15px;
+  background: #fff;
+  transition: background 0.15s, color 0.15s;
+}
+.promo-link::after { content: ' →'; }
+.promo-link:hover { background: var(--c-primary); color: #fff; }
