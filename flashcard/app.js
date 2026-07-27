@@ -44,11 +44,21 @@
   }
 
   // ---- Supabase ----
-  const { createClient } = supabase;
-  const db = createClient(
-    'https://udrkuswxyfnzdupvqcjg.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkcmt1c3d4eWZuemR1cHZxY2pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0ODk3MTIsImV4cCI6MjA5MjA2NTcxMn0.XQ7JHEaIsImIuEqE0WRwV_WFeeHYpmBq5KIJNPFNP2E'
-  );
+  // 問題報告機能でのみ使用する補助的な依存。CDNの読み込みに失敗しても
+  // クイズ本体は動作させるため、初期化の失敗は致命的エラーとして扱わない。
+  let db = null;
+  try {
+    if (typeof supabase !== 'undefined' && typeof supabase.createClient === 'function') {
+      db = supabase.createClient(
+        'https://udrkuswxyfnzdupvqcjg.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkcmt1c3d4eWZuemR1cHZxY2pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0ODk3MTIsImV4cCI6MjA5MjA2NTcxMn0.XQ7JHEaIsImIuEqE0WRwV_WFeeHYpmBq5KIJNPFNP2E'
+      );
+    } else {
+      console.warn('Supabase を読み込めませんでした。問題報告機能のみ無効になります。');
+    }
+  } catch (e) {
+    console.warn('Supabase の初期化に失敗しました。問題報告機能のみ無効になります。', e);
+  }
 
   // ---- State ----
   let state = {
@@ -403,6 +413,12 @@
   });
 
   // ---- Report button ----
+  // 送信先が使えないときは入口ごと隠す（開いても送信できないため）
+  if (!db) {
+    const reportBtn = document.getElementById('btn-report');
+    if (reportBtn) reportBtn.style.display = 'none';
+  }
+
   document.getElementById('btn-report').addEventListener('click', () => {
     const q = state.queue[state.current];
     document.getElementById('report-question-preview').textContent = q.question;
@@ -419,6 +435,11 @@
     const note = document.getElementById('report-textarea').value.trim();
     if (note.length > 500) {
       alert('報告内容は500文字以内で入力してください。');
+      return;
+    }
+    if (!db) {
+      alert('通信環境の問題により、現在この機能をご利用いただけません。時間をおいて再度お試しください。');
+      document.getElementById('report-overlay').classList.add('hidden');
       return;
     }
     const sendBtn = document.getElementById('btn-report-send');
