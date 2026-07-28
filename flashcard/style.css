@@ -850,3 +850,14 @@ body {
 }
 .promo-link::after { content: ' →'; }
 .promo-link:hover { background: var(--c-primary); color: #fff; }
+
+/* ASP提供の長い文言をそのまま使う場合のリンク表示 */
+.promo-textlink {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--c-primary);
+  line-height: 1.7;
+  text-decoration: underline;
+}
+.promo-textlink:hover { color: var(--c-primary-dark); }

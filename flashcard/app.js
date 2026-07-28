@@ -78,8 +78,25 @@
         body: '保育実習理論を学習中の方へ。実技試験で音楽表現を選ぶ場合、ピアノなどでの弾き歌いが課されます。独学が難しいと感じたら、オンラインの無料体験から試してみる方法もあります。',
       },
     },
-    // 以下は提携審査中。承認後に url / impression を設定すると自動的に表示される。
-    course: { url: '', impression: '', cta: '', subjects: [], page: null, result: null },
+    // 資格の通信講座（学習方法の見直しを検討している層向け）
+    course: {
+      url: 'https://px.a8.net/svt/ejp?a8mat=4B8ACT+9OW19U+5IEI+5YJRM',
+      impression: 'https://www17.a8.net/0.gif?a8mat=4B8ACT+9OW19U+5IEI+5YJRM',
+      // A8の原稿改変可否が未確認のため、提供された文言をそのまま使用する。
+      // 改変可と確認できたら短い文言に差し替え、ctaStyle を 'button' に変更してよい。
+      cta: '四谷学院通信講座は「誰でも才能を持っている」をモットーに、役立つ資格から、趣味、実用講座などさまざまな通信教育を行っています。',
+      ctaStyle: 'text',
+      subjects: [],    // 科目では出し分けない（科目非依存の案件のため）
+      maxRate: 60,     // 正答率がこの値未満のときに表示。保育士試験の合格基準（各科目6割）に合わせる
+      page: null,
+      result: {
+        title: '独学での対策に不安を感じていませんか？',
+        // リンク先は保育士講座の直リンクではなく通信講座の総合サイトのため、
+        // 「保育士講座の資料請求はこちら」とは書かない（着地先との食い違いを避ける）。
+        body: '資格取得の通信講座を検討する選択肢もあります。資料請求は無料で、教材やカリキュラムを確認してから検討できます。',
+      },
+    },
+    // 提携審査中。承認後に url / impression を設定すると自動的に表示される。
     career: { url: '', impression: '', cta: '', subjects: [], page: null, result: null },
   };
 
@@ -130,7 +147,8 @@
     body.textContent = copy.body;
 
     const link = document.createElement('a');
-    link.className = 'promo-link';
+    // ASP提供の長い文言をそのまま使う場合はボタンではなくテキストリンクで表示する
+    link.className = promo.ctaStyle === 'text' ? 'promo-textlink' : 'promo-link';
     link.href = promo.url;
     link.target = '_blank';
     link.rel = 'sponsored nofollow noopener';
@@ -505,10 +523,20 @@
     const promoResult = document.getElementById('promo-result');
     if (promoResult) {
       promoResult.innerHTML = '';
-      const key = Object.keys(PROMOS).find(function (k) {
+      // 表示する案件を1件だけ選ぶ。優先順位はコードで明示し、PROMOS の定義順に依存させない。
+      //   優先1: 正答率が合格ラインに届かなかったときに出す案件（科目を問わない）
+      //   優先2: 科目に紐づく案件
+      // 例: 保育実習理論で低得点の場合、ピアノより学習方法の見直しのほうが妥当なため優先1を出す。
+      let key = Object.keys(PROMOS).find(function (k) {
         const p = PROMOS[k];
-        return p.url && p.subjects.indexOf(state.selectedSubject) !== -1;
+        return p.url && typeof p.maxRate === 'number' && rate < p.maxRate;
       });
+      if (!key) {
+        key = Object.keys(PROMOS).find(function (k) {
+          const p = PROMOS[k];
+          return p.url && p.subjects.indexOf(state.selectedSubject) !== -1;
+        });
+      }
       // 「もう一度」「間違えた問題を復習」で結果画面を繰り返し見る利用者に
       // 毎回同じ広告を見せないよう、1セッションあたりの表示回数を制限する。
       if (key && getPromoShown(key) < PROMO_SESSION_LIMIT) {
