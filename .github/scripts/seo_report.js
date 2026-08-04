@@ -13,6 +13,18 @@ const GITHUB_TOKEN    = process.env.GITHUB_TOKEN;
 const [REPO_OWNER, REPO_NAME] = (process.env.GITHUB_REPOSITORY || '/').split('/');
 
 // ---- 目標値 ----
+// アフィリエイト訴求の表示用ラベル（app.js の PROMOS / data-placement と対応）
+const PROMO_LABEL = {
+  music:  'オルコネ（音楽教室）',
+  course: '四谷学院（通信講座）',
+  career: '転職サービス',
+};
+const PLACEMENT_LABEL = {
+  top:    'トップページ',
+  jisshu: '保育実習理論ページ',
+  result: 'クイズ結果画面',
+};
+
 const TARGETS = {
   short: {
     label: '短期目標',
@@ -216,6 +228,128 @@ async function fetchGA4ByDevice(auth, startDate, endDate) {
   }
 }
 
+// アフィリエイト訴求のクリック実績（収益化の唯一の指標）
+async function fetchGA4Affiliate(auth, startDate, endDate) {
+  const analyticsdata = google.analyticsdata({ version: 'v1beta', auth });
+  try {
+    const res = await analyticsdata.properties.runReport({
+      property: `properties/${GA4_PROPERTY_ID}`,
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [{ name: 'eventCount' }],
+        dimensions: [
+          { name: 'customEvent:promo_id' },
+          { name: 'customEvent:placement' },
+        ],
+        dimensionFilter: {
+          filter: { fieldName: 'eventName', stringFilter: { value: 'affiliate_click' } },
+        },
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+      },
+    });
+    return (res.data.rows || []).map(r => ({
+      promo: r.dimensionValues[0].value,
+      placement: r.dimensionValues[1].value,
+      clicks: parseInt(r.metricValues[0].value),
+    }));
+  } catch (e) {
+    // カスタムディメンション未登録時もここに来る
+    console.error('GA4 affiliate error:', e.message);
+    return [];
+  }
+}
+
+// 新規とリピーターの比率（反復利用がこのサイトの強みのため）
+async function fetchGA4NewVsReturning(auth, startDate, endDate) {
+  const analyticsdata = google.analyticsdata({ version: 'v1beta', auth });
+  try {
+    const res = await analyticsdata.properties.runReport({
+      property: `properties/${GA4_PROPERTY_ID}`,
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [
+          { name: 'sessions' },
+          { name: 'engagementRate' },
+          { name: 'averageSessionDuration' },
+        ],
+        dimensions: [{ name: 'newVsReturning' }],
+      },
+    });
+    const label = { new: '新規', returning: 'リピーター' };
+    return (res.data.rows || []).map(r => ({
+      type: label[r.dimensionValues[0].value] || (r.dimensionValues[0].value || '(未設定)'),
+      sessions: parseInt(r.metricValues[0].value),
+      engagementRate: parseFloat(r.metricValues[1].value),
+      avgDuration: parseFloat(r.metricValues[2].value),
+    }));
+  } catch (e) {
+    console.error('GA4 newVsReturning error:', e.message);
+    return [];
+  }
+}
+
+// ランディングページ別（既存のページ別は経由も含むため、着地点が分からない）
+async function fetchGA4Landing(auth, startDate, endDate) {
+  const analyticsdata = google.analyticsdata({ version: 'v1beta', auth });
+  try {
+    const res = await analyticsdata.properties.runReport({
+      property: `properties/${GA4_PROPERTY_ID}`,
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [
+          { name: 'sessions' },
+          { name: 'bounceRate' },
+          { name: 'engagementRate' },
+        ],
+        dimensions: [{ name: 'landingPage' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 15,
+      },
+    });
+    return (res.data.rows || []).map(r => ({
+      path: r.dimensionValues[0].value,
+      sessions: parseInt(r.metricValues[0].value),
+      bounceRate: parseFloat(r.metricValues[1].value),
+      engagementRate: parseFloat(r.metricValues[2].value),
+    }));
+  } catch (e) {
+    console.error('GA4 landing error:', e.message);
+    return [];
+  }
+}
+
+// 参照元/メディアの内訳（「その他」チャネルの正体を特定するため）
+async function fetchGA4Source(auth, startDate, endDate) {
+  const analyticsdata = google.analyticsdata({ version: 'v1beta', auth });
+  try {
+    const res = await analyticsdata.properties.runReport({
+      property: `properties/${GA4_PROPERTY_ID}`,
+      requestBody: {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [
+          { name: 'sessions' },
+          { name: 'engagementRate' },
+        ],
+        dimensions: [
+          { name: 'sessionSourceMedium' },
+          { name: 'sessionDefaultChannelGroup' },
+        ],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 15,
+      },
+    });
+    return (res.data.rows || []).map(r => ({
+      sourceMedium: r.dimensionValues[0].value,
+      channel: r.dimensionValues[1].value,
+      sessions: parseInt(r.metricValues[0].value),
+      engagementRate: parseFloat(r.metricValues[1].value),
+    }));
+  } catch (e) {
+    console.error('GA4 source error:', e.message);
+    return [];
+  }
+}
+
 function createIssue(title, body) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({ title, body });
@@ -244,7 +378,8 @@ function createIssue(title, body) {
 }
 
 async function sendEmail(reportData, issueBody) {
-  const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions } = reportData;
+  const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
+          affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows } = reportData;
 
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -267,6 +402,30 @@ async function sendEmail(reportData, issueBody) {
     <tr>${tdl('平均順位')}${td(curr.position + '位')}${td(prev.position + '位')}${td('–')}</tr>
     <tr style="background:#f0f8ff;">${tdl('セッション（GA4）')}${td(curr.sessions)}${td(prev.sessions)}${td(diffLabel(curr.sessions, prev.sessions))}</tr>
     <tr style="background:#f0f8ff;">${tdl('ページビュー（GA4）')}${td(curr.pageviews)}${td(prev.pageviews)}${td(diffLabel(curr.pageviews, prev.pageviews))}</tr>`;
+
+  const affTotalMail = affiliateRows.reduce((s, r) => s + r.clicks, 0);
+  const prevAffTotalMail = prevAffiliateRows.reduce((s, r) => s + r.clicks, 0);
+  const affiliateHtml = affiliateRows.length > 0
+    ? affiliateRows.map(r =>
+        `<tr>${tdl(PROMO_LABEL[r.promo] || r.promo)}${tdl(PLACEMENT_LABEL[r.placement] || r.placement)}${td(r.clicks)}</tr>`).join('')
+    : `<tr><td colspan="3" style="padding:4px 8px;">クリックなし（カスタムディメンション未登録の場合もここに表示されます）</td></tr>`;
+
+  const newReturnHtml = newReturnRows.length > 0
+    ? newReturnRows.map(r => {
+        const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+        return `<tr>${tdl(r.type)}${td(r.sessions)}${td((r.engagementRate * 100).toFixed(1) + '%')}${td(dur)}</tr>`;
+      }).join('')
+    : `<tr><td colspan="4" style="padding:4px 8px;">データなし</td></tr>`;
+
+  const sourceHtml = sourceRows.length > 0
+    ? sourceRows.map(r =>
+        `<tr>${tdl(r.sourceMedium)}${tdl(r.channel)}${td(r.sessions)}${td((r.engagementRate * 100).toFixed(1) + '%')}</tr>`).join('')
+    : `<tr><td colspan="4" style="padding:4px 8px;">データなし</td></tr>`;
+
+  const landingHtml = landingRows.length > 0
+    ? landingRows.map(r =>
+        `<tr>${tdl(r.path)}${td(r.sessions)}${td((r.bounceRate * 100).toFixed(1) + '%')}${td((r.engagementRate * 100).toFixed(1) + '%')}</tr>`).join('')
+    : `<tr><td colspan="4" style="padding:4px 8px;">データなし</td></tr>`;
 
   const channelHtml = ga4Rows.length > 0
     ? ga4Rows.map(r => {
@@ -309,10 +468,35 @@ async function sendEmail(reportData, issueBody) {
   ${summaryHtml}
 </table>
 
+<h3>💰 アフィリエイトのクリック（GA4）</h3>
+<p style="font-size:15px;"><strong>合計 ${affTotalMail} クリック</strong>（先週 ${prevAffTotalMail}）</p>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('案件')}${th('設置場所')}${th('クリック')}</tr>
+  ${affiliateHtml}
+</table>
+
+<h3>🔁 新規とリピーター（GA4）</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('区分')}${th('セッション')}${th('エンゲージメント率')}${th('平均滞在時間')}</tr>
+  ${newReturnHtml}
+</table>
+
 <h3>📱 流入元内訳（GA4）</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
   <tr style="background:#f0f0f0;">${th('チャネル')}${th('セッション')}${th('PV/セッション')}${th('直帰率')}${th('平均滞在時間')}${th('エンゲージメント率')}</tr>
   ${channelHtml}
+</table>
+
+<h3>🔍 参照元/メディアの内訳（GA4）</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('参照元 / メディア')}${th('チャネル')}${th('セッション')}${th('エンゲージメント率')}</tr>
+  ${sourceHtml}
+</table>
+
+<h3>🛬 ランディングページ別（GA4）</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('着地ページ')}${th('セッション')}${th('直帰率')}${th('エンゲージメント率')}</tr>
+  ${landingHtml}
 </table>
 
 <h3>💻 デバイス別内訳（GA4）</h3>
@@ -391,6 +575,7 @@ async function main() {
   const [
     gscTotals, prevGscTotals,
     gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows, ga4PageRows, ga4DeviceRows,
+    affiliateRows, prevAffiliateRows, newReturnRows, prevNewReturnRows, landingRows, sourceRows,
   ] = await Promise.all([
     fetchGSCTotals(auth, startDate, endDate),
     fetchGSCTotals(auth, prevStartDate, prevEndDate),
@@ -401,6 +586,12 @@ async function main() {
     fetchGSCByPage(auth, startDate, endDate),
     fetchGA4ByPage(auth, startDate, endDate),
     fetchGA4ByDevice(auth, startDate, endDate),
+    fetchGA4Affiliate(auth, startDate, endDate),
+    fetchGA4Affiliate(auth, prevStartDate, prevEndDate),
+    fetchGA4NewVsReturning(auth, startDate, endDate),
+    fetchGA4NewVsReturning(auth, prevStartDate, prevEndDate),
+    fetchGA4Landing(auth, startDate, endDate),
+    fetchGA4Source(auth, startDate, endDate),
   ]);
 
   // 今週 GSC 集計（合計値はdimensionsなしの正確な値を使用）
@@ -483,6 +674,33 @@ async function main() {
     '',
   ];
 
+  // ---- 収益化：アフィリエイトのクリック実績 ----
+  lines.push('### 💰 アフィリエイトのクリック（GA4）');
+  const affTotal = affiliateRows.reduce((s, r) => s + r.clicks, 0);
+  const prevAffTotal = prevAffiliateRows.reduce((s, r) => s + r.clicks, 0);
+  lines.push(`**合計 ${affTotal} クリック**（先週 ${prevAffTotal}）${diffLabel(affTotal, prevAffTotal)}`, '');
+  if (affiliateRows.length > 0) {
+    lines.push('| 案件 | 設置場所 | クリック |');
+    lines.push('|-----|---------|--------|');
+    affiliateRows.forEach(r => lines.push(`| ${PROMO_LABEL[r.promo] || r.promo} | ${PLACEMENT_LABEL[r.placement] || r.placement} | ${r.clicks} |`));
+  } else {
+    lines.push('_クリックなし。カスタムディメンション（promo_id / placement）が未登録の場合もここに表示されます。_');
+  }
+  lines.push('');
+
+  // ---- 新規とリピーターの比率 ----
+  if (newReturnRows.length > 0) {
+    lines.push('### 🔁 新規とリピーター（GA4）');
+    lines.push('| 区分 | セッション | 先週 | エンゲージメント率 | 平均滞在時間 |');
+    lines.push('|-----|-----------|------|-----------------|-------------|');
+    newReturnRows.forEach(r => {
+      const p = prevNewReturnRows.find(x => x.type === r.type);
+      const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+      lines.push(`| ${r.type} | ${r.sessions} | ${p ? p.sessions : '–'} | ${(r.engagementRate * 100).toFixed(1)}% | ${dur} |`);
+    });
+    lines.push('');
+  }
+
   lines.push('### 📱 流入元内訳（GA4）');
   lines.push('| チャネル | セッション | PV/セッション | 直帰率 | 平均滞在時間 | エンゲージメント率 |');
   lines.push('|---------|-----------|--------------|--------|-------------|-----------------|');
@@ -496,6 +714,26 @@ async function main() {
     lines.push('| データなし | – | – | – | – | – |');
   }
   lines.push('');
+
+  // ---- 参照元/メディアの内訳（「その他」チャネルの正体を特定するため） ----
+  if (sourceRows.length > 0) {
+    lines.push('### 🔍 参照元/メディアの内訳（GA4）');
+    lines.push('| 参照元 / メディア | チャネル | セッション | エンゲージメント率 |');
+    lines.push('|-----------------|---------|-----------|-----------------|');
+    sourceRows.forEach(r => lines.push(
+      `| ${r.sourceMedium} | ${r.channel} | ${r.sessions} | ${(r.engagementRate * 100).toFixed(1)}% |`));
+    lines.push('');
+  }
+
+  // ---- ランディングページ別（着地点。既存のページ別は経由も含む） ----
+  if (landingRows.length > 0) {
+    lines.push('### 🛬 ランディングページ別（GA4）');
+    lines.push('| 着地ページ | セッション | 直帰率 | エンゲージメント率 |');
+    lines.push('|-----------|-----------|--------|-----------------|');
+    landingRows.forEach(r => lines.push(
+      `| ${r.path} | ${r.sessions} | ${(r.bounceRate * 100).toFixed(1)}% | ${(r.engagementRate * 100).toFixed(1)}% |`));
+    lines.push('');
+  }
 
   if (ga4DeviceRows.length > 0) {
     lines.push('### 📱 デバイス別内訳（GA4）');
@@ -592,7 +830,8 @@ async function main() {
   await createIssue(`[SEOレポート] ${today}`, issueBody);
   console.log('✅ SEOレポートIssue作成完了');
 
-  await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions }, issueBody);
+  await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
+                    affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows }, issueBody);
   console.log('✅ SEOレポートメール送信完了');
 }
 
