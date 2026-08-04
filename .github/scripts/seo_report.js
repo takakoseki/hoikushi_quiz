@@ -565,11 +565,13 @@ async function main() {
   const auth = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
   auth.setCredentials({ refresh_token: REFRESH_TOKEN });
 
-  // 今週: 1〜7日前、先週: 8〜14日前
-  const endDate       = dateStr(1);
-  const startDate     = dateStr(7);
-  const prevEndDate   = dateStr(8);
-  const prevStartDate = dateStr(14);
+  // 水曜に実行し、終端を3日前（日曜）とすることで月曜〜日曜の1週間を切り出す。
+  // GA4は24〜48時間、GSCは2〜3日データ確定に時間がかかるため、
+  // 前日までを集計対象にすると暫定値で判断してしまう（ルール25）。
+  const endDate       = dateStr(3);
+  const startDate     = dateStr(9);
+  const prevEndDate   = dateStr(10);
+  const prevStartDate = dateStr(16);
   const today = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
   const [
