@@ -98,7 +98,7 @@ body {
   background: var(--c-primary);
   border-color: var(--c-primary);
   color: #fff;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* History */
@@ -315,7 +315,7 @@ body {
   font-size: 0.8rem;
   color: var(--c-text-sub);
   margin-bottom: 12px;
-  font-weight: 500;
+  font-weight: 400;
 }
 .answer-explanation {
   font-size: 0.88rem;
@@ -587,7 +587,7 @@ body {
 .streak-label {
   font-size: 0.85rem;
   color: var(--c-text-sub);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* ===== MILESTONE SHARE ===== */
@@ -638,7 +638,7 @@ body {
 .subject-links-section { margin: 24px 0 0; }
 .subject-links-section h2 { font-size: 14px; font-weight: 600; color: #555; margin-bottom: 10px; }
 .subject-links-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.subject-link-card { display: flex; flex-direction: column; align-items: center; padding: 10px 6px; border: 1px solid #e0e4f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 12px; font-weight: 500; background: #f8f9ff; transition: background 0.15s; gap: 2px; }
+.subject-link-card { display: flex; flex-direction: column; align-items: center; padding: 10px 6px; border: 1px solid #e0e4f0; border-radius: 8px; text-decoration: none; color: #333; font-size: 12px; font-weight: 400; background: #f8f9ff; transition: background 0.15s; gap: 2px; }
 .subject-link-card span { font-size: 11px; color: #888; }
 .subject-link-card:hover { background: #eef0ff; }
 
@@ -698,7 +698,7 @@ body {
 .faq-item:last-child { border-bottom: none; }
 .faq-q {
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--c-text);
   cursor: pointer;
   display: flex;
@@ -774,7 +774,7 @@ body {
 }
 .theme-keywords li {
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 400;
   background: #e8f0f5;
   color: var(--c-primary-dark);
   border-radius: 4px;
@@ -803,7 +803,7 @@ body {
 .exam-more { margin-top: 10px; }
 .exam-more a {
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--c-primary);
   text-decoration: none;
   border-bottom: 1px solid #b8d4e3;
@@ -842,7 +842,7 @@ body {
 .promo-link {
   display: inline-block;
   font-size: 0.79rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--c-primary);
   text-decoration: none;
   border: 1px solid var(--c-primary);
@@ -858,7 +858,7 @@ body {
 .promo-textlink {
   display: inline-block;
   font-size: 0.78rem;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--c-primary);
   line-height: 1.7;
   text-decoration: underline;
