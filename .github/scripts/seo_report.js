@@ -43,6 +43,13 @@ const TARGETS = {
   },
 };
 
+// 秒数を m:ss に整形する。先に四捨五入しないと 239.7秒 が「3:60」になる。
+function fmtDuration(sec) {
+  if (isNaN(sec)) return '–';
+  const t = Math.round(sec);
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+}
+
 function dateStr(daysAgo) {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
@@ -412,7 +419,7 @@ async function sendEmail(reportData, issueBody) {
 
   const newReturnHtml = newReturnRows.length > 0
     ? newReturnRows.map(r => {
-        const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+        const dur = isNaN(r.avgDuration) ? '–' : fmtDuration(r.avgDuration);
         return `<tr>${tdl(r.type)}${td(r.sessions)}${td((r.engagementRate * 100).toFixed(1) + '%')}${td(dur)}</tr>`;
       }).join('')
     : `<tr><td colspan="4" style="padding:4px 8px;">データなし</td></tr>`;
@@ -430,7 +437,7 @@ async function sendEmail(reportData, issueBody) {
   const channelHtml = ga4Rows.length > 0
     ? ga4Rows.map(r => {
         const pvPerSession = r.sessions > 0 ? (r.pageviews / r.sessions).toFixed(2) : '–';
-        const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+        const dur = isNaN(r.avgDuration) ? '–' : fmtDuration(r.avgDuration);
         return `<tr>${tdl(r.channel)}${td(r.sessions)}${td(pvPerSession)}${td(isNaN(r.bounceRate) ? '–' : (r.bounceRate * 100).toFixed(1) + '%')}${td(dur)}${td(isNaN(r.engagementRate) ? '–' : (r.engagementRate * 100).toFixed(1) + '%')}</tr>`;
       }).join('')
     : `<tr><td colspan="6" style="padding:4px 8px;">データなし</td></tr>`;
@@ -442,7 +449,7 @@ async function sendEmail(reportData, issueBody) {
   const ga4PageHtml = ga4PageRows.length > 0
     ? ga4PageRows.map(r => {
         const pvPerSession = r.sessions > 0 ? (r.pageviews / r.sessions).toFixed(2) : '–';
-        const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+        const dur = isNaN(r.avgDuration) ? '–' : fmtDuration(r.avgDuration);
         return `<tr>${tdl(r.path)}${td(r.sessions)}${td(r.pageviews)}${td(pvPerSession)}${td(isNaN(r.bounceRate) ? '–' : (r.bounceRate * 100).toFixed(1) + '%')}${td(dur)}${td(isNaN(r.engagementRate) ? '–' : (r.engagementRate * 100).toFixed(1) + '%')}</tr>`;
       }).join('')
     : `<tr><td colspan="7" style="padding:4px 8px;">データなし</td></tr>`;
@@ -697,7 +704,7 @@ async function main() {
     lines.push('|-----|-----------|------|-----------------|-------------|');
     newReturnRows.forEach(r => {
       const p = prevNewReturnRows.find(x => x.type === r.type);
-      const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+      const dur = isNaN(r.avgDuration) ? '–' : fmtDuration(r.avgDuration);
       lines.push(`| ${r.type} | ${r.sessions} | ${p ? p.sessions : '–'} | ${(r.engagementRate * 100).toFixed(1)}% | ${dur} |`);
     });
     lines.push('');
@@ -709,7 +716,7 @@ async function main() {
   if (ga4Rows.length > 0) {
     ga4Rows.forEach(r => {
       const pvPerSession = r.sessions > 0 ? (r.pageviews / r.sessions).toFixed(2) : '–';
-      const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+      const dur = isNaN(r.avgDuration) ? '–' : fmtDuration(r.avgDuration);
       lines.push(`| ${r.channel} | ${r.sessions} | ${pvPerSession} | ${isNaN(r.bounceRate) ? '–' : (r.bounceRate * 100).toFixed(1) + '%'} | ${dur} | ${isNaN(r.engagementRate) ? '–' : (r.engagementRate * 100).toFixed(1) + '%'} |`);
     });
   } else {
@@ -751,7 +758,7 @@ async function main() {
     lines.push('|-------|-----------|-----|--------------|--------|-------------|-----------------|');
     ga4PageRows.forEach(r => {
       const pvPerSession = r.sessions > 0 ? (r.pageviews / r.sessions).toFixed(2) : '–';
-      const dur = isNaN(r.avgDuration) ? '–' : `${Math.floor(r.avgDuration / 60)}:${String(Math.round(r.avgDuration % 60)).padStart(2, '0')}`;
+      const dur = isNaN(r.avgDuration) ? '–' : fmtDuration(r.avgDuration);
       lines.push(`| ${r.path} | ${r.sessions} | ${r.pageviews} | ${pvPerSession} | ${isNaN(r.bounceRate) ? '–' : (r.bounceRate * 100).toFixed(1) + '%'} | ${dur} | ${isNaN(r.engagementRate) ? '–' : (r.engagementRate * 100).toFixed(1) + '%'} |`);
     });
     lines.push('');
