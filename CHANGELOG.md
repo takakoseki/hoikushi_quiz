@@ -1,6 +1,37 @@
 
 # 変更履歴
 
+## 2026-08-06 (3)
+
+### perf: Google Fonts を廃止しOS標準の日本語フォントに切り替え（CLS 0.144 の解消）
+
+`display=optional`（PR #81）でもCLSは 0.144 のまま解消しなかった。
+配信中のHTMLが `optional` になっていることは view-source で確認済みで、
+PageSpeed の Layout shift culprits も `<main class="start-main">` の
+0.144（全量）が `fonts.gstatic.com` の Web font によるものと示していた。
+
+原因は `display: optional` の判定起点にある。
+`optional` は「**フォントの読み込み開始から**約100ms以内に届かなければ使わない」仕様で、
+起点がページ読み込み開始ではない。CSSを非同期化した結果、
+フォントの読み込み開始がページ描画のはるか後にずれ込み、
+preconnect/preload により100ms以内に到着して「速いフォント」と判定され、
+描画済みのページに適用されてしまっていた。
+
+差し替えが起きる限りCLSは消えないため、Webフォント自体を廃止する。
+
+- 全11ファイルから Google Fonts の `<link>` を削除（preconnect 2件・preload・stylesheet・noscript の計5行）
+- `font-family` をOS標準の日本語フォントに変更
+  - ゴシック：`'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans CJK JP', Meiryo, sans-serif`
+  - 明朝：`'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif`（4箇所）
+- `style.css?v=20260806c` にバージョンを更新
+- トレードオフ：Androidは明朝体を標準搭載していないため、明朝の4箇所
+  （見出し・問題文・結果タイトル・モーダルタイトル）が常にゴシックになる。
+  iOS/Mac はヒラギノ明朝、Windows は游明朝で明朝を維持。
+  実装前にスクリーンショットで比較し、承認を得たうえで実施
+- 検証：実ブラウザで `fonts.googleapis.com` / `fonts.gstatic.com` への
+  リクエストが0件になることと、レイアウト崩れがないことを確認
+- CLSが実際に0になるかは本番反映後の実測で確認する
+
 ## 2026-08-06 (2)
 
 ### fix: フォントを `display=optional` に変更（CLS 0.144 の是正）
