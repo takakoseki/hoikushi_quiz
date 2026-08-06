@@ -1,6 +1,37 @@
 
 # 変更履歴
 
+## 2026-08-06 (4)
+
+### perf: JSに `defer` を付与して描画ブロックを解消
+
+Google Fonts 廃止（PR #82）で CLS は 0.144 → 0 に解消したが、
+FCP 4.2秒 / LCP 4.5秒 が残った。PageSpeed の Render-blocking requests を
+展開したところ、描画をブロックしていたのは**CSSではなくJS**だった。
+
+| ファイル | サイズ | 時間 |
+|---|---|---|
+| questions.js | 311.6 KiB | 3,450 ms |
+| supabase-js (jsDelivr) | 48.8 KiB | 1,500 ms |
+| app.js | 10.9 KiB | 630 ms |
+| style.css | 6.0 KiB | 160 ms |
+
+推定短縮余地は 1,790 ms。`</body>` 直前にあっても `defer`/`async` のない
+`<script>` はパーサーを停止させるため、描画ブロックとして扱われる。
+
+なお以前「questions.js は `</body>` 直前にあるため初期表示に影響しない」と
+判断していたが、これは誤りだった（TBTが0だったため主スレッド負荷のみを見ていた）。
+
+- 全10ページの3つの `<script>` に `defer` を付与
+  （supabase-js → questions.js → app.js）
+- `defer` は記述順を保持するため、依存関係のある読み込み順序は変わらない
+- `app.js` は `</body>` 直前で即時実行される IIFE で、DOM構築後の実行を
+  前提としている。`defer` の実行タイミングは「DOM解析完了後・DOMContentLoaded前」
+  のため動作は変わらない
+- 検証：実ブラウザでトップ・科目ページとも、問題表示・解答判定・
+  科目別問題数表示が正常であることを確認。JS実行エラー0件
+- 効果は本番反映後の実測で確認する
+
 ## 2026-08-06 (3)
 
 ### perf: Google Fonts を廃止しOS標準の日本語フォントに切り替え（CLS 0.144 の解消）
