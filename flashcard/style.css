@@ -23,7 +23,7 @@
 }
 
 body {
-  font-family: 'Noto Sans JP', sans-serif;
+  font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, sans-serif;
   background: var(--c-bg);
   color: var(--c-text);
   min-height: 100vh;
@@ -41,7 +41,7 @@ body {
   padding: 40px 20px 32px;
 }
 .app-title {
-  font-family: 'Noto Serif JP', serif;
+  font-family: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
   font-size: 1.8rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -236,7 +236,7 @@ body {
   padding: 28px 24px;
 }
 .card-question {
-  font-family: 'Noto Serif JP', serif;
+  font-family: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
   font-size: 1.05rem;
   line-height: 1.8;
   color: var(--c-text);
@@ -352,7 +352,7 @@ body {
   text-align: center;
 }
 .result-title {
-  font-family: 'Noto Serif JP', serif;
+  font-family: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
   font-size: 1.4rem;
   margin-bottom: 28px;
   color: var(--c-primary);
@@ -513,7 +513,7 @@ body {
   overflow-y: auto;
 }
 .modal-title {
-  font-family: 'Noto Serif JP', serif;
+  font-family: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
   font-size: 1.1rem;
   margin-bottom: 16px;
   color: var(--c-primary);
