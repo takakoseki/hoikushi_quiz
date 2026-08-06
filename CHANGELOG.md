@@ -1,6 +1,28 @@
 
 # 変更履歴
 
+## 2026-08-06
+
+### perf: Google Fonts を非同期読み込みに変更（レンダリング阻害の解消）
+
+8/4のウェイト削減（6→4）で未使用CSSは178KiB→118KiB（▲34%）に減ったが、
+レンダリング阻害は7,790ms→7,420ms（▲4.7%）とほぼ動かなかった。
+PageSpeed の Network dependency tree から、阻害の主因は
+CSSのサイズではなく「HTML → fonts.googleapis.com → fonts.gstatic.com」という
+外部ドメインへの直列リクエスト連鎖そのものだと判明した。
+
+- フォントCSSを `media="print"` + `onload="this.media='all'"` で非同期化し、
+  `rel="preload" as="style"` で取得を先行させる
+- JS無効環境向けに `<noscript>` で同期読み込みを併記
+- FOUT（フォント切替時のちらつき）対策として、フォールバックを
+  `sans-serif` / `serif` からOS標準の日本語フォント
+  （Hiragino Sans / Yu Gothic / Meiryo、明朝は Hiragino Mincho ProN / Yu Mincho）に変更。
+  字幅が近くなるため CLS の悪化を抑えられる
+- CDNキャッシュ対策として `style.css?v=20260806a` にバージョンを更新
+- 対象ファイル：`flashcard/index.html`、科目別9ページ、`flashcard/privacy.html`、`flashcard/style.css`
+- 実装後に CLS を必ず再測定すること（0を維持できているかが判断基準）
+
+
 ## 2026-08-05
 
 ### fix: レポートの滞在時間が「3:60」と表示されるバグを修正
