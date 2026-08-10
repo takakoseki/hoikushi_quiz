@@ -25,6 +25,21 @@ const PLACEMENT_LABEL = {
   result: 'クイズ結果画面',
 };
 
+// 科目名 → 科目ページのディレクトリ名。
+// 「その科目のクエリを、科目ページとトップページのどちらが受けているか」を
+// 判定するために使う（カニバリゼーションの検出）。
+const SUBJECT_PAGES = {
+  '保育原理':         'hoiku-genri',
+  '教育原理':         'kyoiku-genri',
+  '社会福祉':         'shakai-fukushi',
+  '子ども家庭福祉':   'kodomo-katei-fukushi',
+  '社会的養護':       'shakaiteki-yogo',
+  '保育の心理学':     'hoiku-shinrigaku',
+  '子どもの保健':     'kodomo-hoken',
+  '子どもの食と栄養': 'shokuji-eiyou',
+  '保育実習理論':     'jisshu-riron',
+};
+
 const TARGETS = {
   short: {
     label: '短期目標',
@@ -136,6 +151,28 @@ async function fetchGSCByPage(auth, startDate, endDate) {
     return res.data.rows || [];
   } catch (e) {
     console.error('GSC page error:', e.message);
+    return [];
+  }
+}
+
+// クエリとページの組み合わせを取得する。
+// クエリ単体・ページ単体の集計では「どのクエリでどのページが出たか」が分からず、
+// 科目ページとトップページの食い合いを判定できないため別途取得する。
+async function fetchGSCByQueryPage(auth, startDate, endDate) {
+  const webmasters = google.webmasters({ version: 'v3', auth });
+  try {
+    const res = await webmasters.searchanalytics.query({
+      siteUrl: GSC_SITE_URL,
+      requestBody: {
+        startDate,
+        endDate,
+        dimensions: ['query', 'page'],
+        rowLimit: 250,
+      },
+    });
+    return res.data.rows || [];
+  } catch (e) {
+    console.error('GSC query x page error:', e.message);
     return [];
   }
 }
@@ -466,6 +503,16 @@ async function sendEmail(reportData, issueBody) {
     `<tr>${tdl(r.keys[0])}${td(r.position.toFixed(1)+'位')}${td(r.impressions)}</tr>`
   ).join('');
 
+  const subjectQueryHtml = subjectQueryRows.map(r =>
+    `<tr>${tdl(r.query)}${tdl(r.subject)}${tdl(r.path)}${tdl(r.owner)}${td(r.impressions)}${td(r.clicks)}${td(r.position.toFixed(1)+'位')}</tr>`
+  ).join('');
+
+  const competingHtml = competingQueries.map(q =>
+    q.pages.map((p, i) =>
+      `<tr>${tdl(i === 0 ? q.query : '')}${tdl(p.path)}${td(p.impressions)}${td(p.position.toFixed(1)+'位')}</tr>`
+    ).join('')
+  ).join('');
+
   const html = `
 <h2>📊 週次SEOレポート（${today}）</h2>
 
@@ -523,6 +570,21 @@ async function sendEmail(reportData, issueBody) {
   <tr style="background:#f0f0f0;">${th('ページ')}${th('クリック')}${th('表示')}${th('CTR')}${th('順位')}</tr>
   ${pageHtml}
 </table>
+
+${subjectQueryRows.length > 0 ? `
+<h3>🔀 科目クエリをどのページが受けているか（GSC）</h3>
+<p style="font-size:13px;">「⚠️ トップページ」が多い場合、科目ページがトップページに食われています。</p>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('クエリ')}${th('科目')}${th('表示中のページ')}${th('判定')}${th('表示')}${th('クリック')}${th('順位')}</tr>
+  ${subjectQueryHtml}
+</table>` : ''}
+
+${competingQueries.length > 0 ? `
+<h3>⚔️ 複数ページが同じクエリを取り合っているもの（GSC）</h3>
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('クエリ')}${th('ページ')}${th('表示')}${th('順位')}</tr>
+  ${competingHtml}
+</table>` : ''}
 
 ${lowCtr.length > 0 ? `
 <h3>🔴 要対応：CTRが低いクエリ</h3>
@@ -585,6 +647,7 @@ async function main() {
     gscTotals, prevGscTotals,
     gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows, ga4PageRows, ga4DeviceRows,
     affiliateRows, prevAffiliateRows, newReturnRows, prevNewReturnRows, landingRows, sourceRows,
+    gscQueryPageRows,
   ] = await Promise.all([
     fetchGSCTotals(auth, startDate, endDate),
     fetchGSCTotals(auth, prevStartDate, prevEndDate),
@@ -601,6 +664,7 @@ async function main() {
     fetchGA4NewVsReturning(auth, prevStartDate, prevEndDate),
     fetchGA4Landing(auth, startDate, endDate),
     fetchGA4Source(auth, startDate, endDate),
+    fetchGSCByQueryPage(auth, startDate, endDate),
   ]);
 
   // 今週 GSC 集計（合計値はdimensionsなしの正確な値を使用）
@@ -647,6 +711,46 @@ async function main() {
   const topQueries = [...gscRows]
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, 5);
+
+  // 分析：科目クエリをどのページが受けているか
+  // GSCのクエリは「保育の心理学 一 問 一答」のように空白が混じるため、
+  // 空白を除いてから科目名を照合する。長い科目名から順に試し、
+  // 「社会福祉」が「子ども家庭福祉」に誤って一致しないようにする。
+  const stripSpace = s => s.replace(/[\s　]/g, '');
+  const subjectNames = Object.keys(SUBJECT_PAGES)
+    .sort((a, b) => b.length - a.length);
+
+  const subjectQueryRows = gscQueryPageRows
+    .map(r => {
+      const [query, page] = r.keys;
+      const subject = subjectNames.find(s => stripSpace(query).includes(stripSpace(s)));
+      if (!subject) return null;
+      const path = shortUrl(page);
+      const owner = path.includes(`/${SUBJECT_PAGES[subject]}/`)
+        ? '✅ 科目ページ'
+        : /^\/flashcard\/?$/.test(path) ? '⚠️ トップページ' : '― 他ページ';
+      return { query, subject, path, owner, impressions: r.impressions, clicks: r.clicks, position: r.position };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.impressions - a.impressions)
+    .slice(0, 20);
+
+  // 分析：1つのクエリを複数ページが取り合っているもの（食い合いの直接的な証拠）
+  const byQuery = new Map();
+  gscQueryPageRows.forEach(r => {
+    const [query, page] = r.keys;
+    if (!byQuery.has(query)) byQuery.set(query, []);
+    byQuery.get(query).push({ path: shortUrl(page), impressions: r.impressions, position: r.position });
+  });
+  const competingQueries = [...byQuery.entries()]
+    .filter(([, pages]) => pages.length >= 2)
+    .map(([query, pages]) => ({
+      query,
+      pages: pages.sort((a, b) => b.impressions - a.impressions),
+      impressions: pages.reduce((s, p) => s + p.impressions, 0),
+    }))
+    .sort((a, b) => b.impressions - a.impressions)
+    .slice(0, 10);
 
   // 目標達成状況
   const organicSessions = ga4Rows.find(r => r.channel === '検索')?.sessions || 0;
@@ -772,6 +876,34 @@ async function main() {
     topPages.forEach(r => lines.push(
       `| ${shortUrl(r.keys[0])} | ${r.clicks} | ${r.impressions} | ${(r.ctr*100).toFixed(1)}% | ${r.position.toFixed(1)}位 |`
     ));
+    lines.push('');
+  }
+
+  if (subjectQueryRows.length > 0) {
+    lines.push('---', '');
+    lines.push('## 🔀 科目クエリをどのページが受けているか（GSC）');
+    lines.push('「⚠️ トップページ」が多い場合、科目ページがトップページに食われています。'
+             + '内部リンクや title の差別化で科目ページに寄せる余地があります。', '');
+    lines.push('| クエリ | 科目 | 表示中のページ | 判定 | 表示回数 | クリック | 順位 |');
+    lines.push('|-------|-----|--------------|-----|---------|--------|-----|');
+    subjectQueryRows.forEach(r => lines.push(
+      `| ${r.query} | ${r.subject} | ${r.path} | ${r.owner} | ${r.impressions} | ${r.clicks} | ${r.position.toFixed(1)}位 |`
+    ));
+    lines.push('');
+  }
+
+  if (competingQueries.length > 0) {
+    lines.push('---', '');
+    lines.push('## ⚔️ 複数ページが同じクエリを取り合っているもの（GSC）');
+    lines.push('同一クエリに複数ページが表示されている状態です。'
+             + '評価が分散するため、どちらを主役にするか決めて整理する候補になります。', '');
+    lines.push('| クエリ | ページ | 表示回数 | 順位 |');
+    lines.push('|-------|-------|---------|-----|');
+    competingQueries.forEach(q => {
+      q.pages.forEach((p, i) => lines.push(
+        `| ${i === 0 ? q.query : ''} | ${p.path} | ${p.impressions} | ${p.position.toFixed(1)}位 |`
+      ));
+    });
     lines.push('');
   }
 
