@@ -864,3 +864,72 @@ body {
   text-decoration: underline;
 }
 .promo-textlink:hover { color: var(--c-primary-dark); }
+
+/* ---- 実技試験ページ ---- */
+/* 3分野の比較表。狭い画面でも本文を横スクロールさせないよう、
+   テーブルだけを独立してスクロールさせる。 */
+.cmp-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 14px 0 4px; }
+.cmp-table {
+  width: 100%;
+  min-width: 460px;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  background: var(--c-surface);
+}
+.cmp-table th,
+.cmp-table td {
+  border: 1px solid var(--c-border);
+  padding: 8px 9px;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.6;
+}
+.cmp-table thead th { background: #f0f0ec; font-weight: 700; }
+.cmp-table tbody th { background: #faf9f6; font-weight: 700; white-space: nowrap; }
+
+.field-card {
+  background: var(--c-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 18px;
+  margin-bottom: 16px;
+}
+.field-card h3 {
+  font-size: 1.05rem;
+  color: var(--c-primary);
+  margin-bottom: 10px;
+  padding-left: 9px;
+  border-left: 4px solid var(--c-primary);
+}
+.field-card h4 {
+  font-size: 0.78rem;
+  color: var(--c-text-sub);
+  letter-spacing: 0.05em;
+  margin: 14px 0 4px;
+}
+.field-card p { font-size: 0.86rem; line-height: 1.85; }
+
+.page-note {
+  font-size: 0.78rem;
+  color: var(--c-text-sub);
+  line-height: 1.8;
+  background: #faf9f6;
+  border-left: 3px solid var(--c-border);
+  padding: 12px 14px;
+  border-radius: 6px;
+  margin-top: 28px;
+}
+/* 記事ページ用のフッター。.app-footer は position:fixed でクイズ画面専用のため、
+   本文が長いページでは内容に重なってしまう。通常フローで配置する。 */
+.page-footer {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 22px 16px 40px;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-bg);
+}
+.page-footer a { font-size: 0.8rem; color: var(--c-text-sub); }
+
+.cmp-hint { font-size: 0.72rem; color: var(--c-text-sub); margin-top: 10px; }
