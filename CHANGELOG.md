@@ -1,6 +1,30 @@
 
 # 変更履歴
 
+## 2026-08-10
+
+### fix: レポートのメール送信が ReferenceError で落ちるバグを修正
+
+PR #84 で追加した「クエリ × ページ」のセクションは、
+`main()` 内で算出した `subjectQueryRows` / `competingQueries` を使うが、
+HTML生成を行う `sendEmail()` にこれらを渡していなかった。
+
+```
+✅ SEOレポートIssue作成完了
+ReferenceError: subjectQueryRows is not defined
+    at sendEmail (seo_report.js:506:28)
+```
+
+Issue作成は `main()` 内で完結するため成功し、その後のメール送信だけが失敗していた。
+Markdown版だけを確認して「動作した」と判断したのが原因で、
+HTML版は同じ関数内にないという構造を見落としていた。
+
+- `sendEmail()` の分割代入と呼び出し側の両方に2つの変数を追加
+- 検証：nodemailer をスタブ化して `sendEmail()` を実際に実行し、
+  ReferenceError が出ないこと・新セクションがHTMLに描画されることを確認。
+  静的な目視ではなく実行して確かめた
+- 対象ファイル：`.github/scripts/seo_report.js`
+
 ## 2026-08-06 (5)
 
 ### feat: 週次SEOレポートに「クエリ × ページ」の内訳を追加
