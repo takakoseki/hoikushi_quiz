@@ -423,7 +423,8 @@ function createIssue(title, body) {
 
 async function sendEmail(reportData, issueBody) {
   const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
-          affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows } = reportData;
+          affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
+          subjectQueryRows, competingQueries } = reportData;
 
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -972,7 +973,8 @@ async function main() {
   console.log('✅ SEOレポートIssue作成完了');
 
   await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
-                    affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows }, issueBody);
+                    affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
+                    subjectQueryRows, competingQueries }, issueBody);
   console.log('✅ SEOレポートメール送信完了');
 }
 
