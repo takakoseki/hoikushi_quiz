@@ -20,9 +20,11 @@ const PROMO_LABEL = {
   career: '転職サービス',
 };
 const PLACEMENT_LABEL = {
-  top:    'トップページ',
-  jisshu: '保育実習理論ページ',
-  result: 'クイズ結果画面',
+  top:      'トップページ',
+  jisshu:   '保育実習理論ページ',
+  result:   'クイズ結果画面',
+  jitsugi:  '実技試験ページ',
+  dokugaku: '独学ガイドページ',
 };
 
 // 科目名 → 科目ページのディレクトリ名。
@@ -232,7 +234,8 @@ async function fetchGA4ByPage(auth, startDate, endDate) {
         ],
         dimensions: [{ name: 'pagePath' }],
         orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-        limit: 10,
+        // 新設ページはセッションが少なく、上位10件では落ちてしまうため広めに取る
+        limit: 20,
       },
     });
     return (res.data.rows || []).map(r => ({
@@ -347,7 +350,7 @@ async function fetchGA4Landing(auth, startDate, endDate) {
         ],
         dimensions: [{ name: 'landingPage' }],
         orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-        limit: 15,
+        limit: 20,
       },
     });
     return (res.data.rows || []).map(r => ({
@@ -691,10 +694,12 @@ async function main() {
   const curr = { impressions: totalImpressions, clicks: totalClicks, ctr: avgCtr, position: avgPosition, sessions: totalSessions, pageviews: totalPageviews };
   const prev = { impressions: prevImpressions, clicks: prevClicks, ctr: prevCtr, position: prevPosition, sessions: prevSessions, pageviews: prevPageviews };
 
-  // ページ別上位（クリック数順）
+  // ページ別（クリック数順、同数なら表示回数順）
+  // 上位10件で切ると、クリックがまだ0の新設ページが必ず落ちて効果測定ができない。
+  // サイトのページ数（十数ページ）が収まる件数にしている。
   const topPages = [...gscPageRows]
-    .sort((a, b) => b.clicks - a.clicks)
-    .slice(0, 10);
+    .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
+    .slice(0, 20);
 
   // 分析：CTR低いクエリ（10回以上・CTR3%未満）
   const lowCtr = gscRows
