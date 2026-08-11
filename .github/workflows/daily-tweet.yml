@@ -1,9 +1,12 @@
 name: 今日の1問 メール送信
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # 毎日 9:00 JST (= 0:00 UTC)
-  workflow_dispatch:      # 手動実行も可能
+  # 2026-08-10：Xアカウントが恒久的に読み取り専用となり投稿できなくなったため、
+  # 定期実行を停止している。異議申し立てが通ってアカウントが復活したら、
+  # 下の cron のコメントを外すだけで元に戻る。
+  # schedule:
+  #   - cron: '0 0 * * *'  # 毎日 9:00 JST (= 0:00 UTC)
+  workflow_dispatch:      # 手動実行は引き続き可能
 
 jobs:
   send-email:
