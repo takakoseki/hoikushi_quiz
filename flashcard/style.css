@@ -933,3 +933,33 @@ body {
 .page-footer a { font-size: 0.8rem; color: var(--c-text-sub); }
 
 .cmp-hint { font-size: 0.72rem; color: var(--c-text-sub); margin-top: 10px; }
+
+/* 試験全体に関わるページへのナビゲーション（科目ページ末尾）。
+   本文を持たないリンクのみの構成にしている。9ページに同じ説明文を置くと
+   内容の薄い重複と判断されるおそれがあるため。 */
+.site-nav {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--c-border);
+}
+.site-nav h2 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--c-text-sub);
+  margin-bottom: 12px;
+}
+.site-nav a {
+  display: block;
+  background: var(--c-surface);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 13px 16px;
+  margin-bottom: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.site-nav a::after { content: ' →'; }
+.site-nav a:hover { background: var(--c-primary-light); }
