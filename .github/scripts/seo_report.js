@@ -12,6 +12,12 @@ const GA4_PROPERTY_ID = process.env.GA4_PROPERTY_ID;
 const GITHUB_TOKEN    = process.env.GITHUB_TOKEN;
 const [REPO_OWNER, REPO_NAME] = (process.env.GITHUB_REPOSITORY || '/').split('/');
 
+// SEOレポートの数値（セッション・クリック・アフィリエイトのクリック数・流入元など）は、
+// 公開リポジトリのIssueに残すと誰でも閲覧できる。運営数値を公開しない方針のため、
+// 既定ではIssueを作成せずメール通知のみとする。
+// 再びIssueにも残したい場合は、ワークフローの env に CREATE_ISSUE: 'true' を追加する。
+const CREATE_ISSUE = process.env.CREATE_ISSUE === 'true';
+
 // ---- 目標値 ----
 // アフィリエイト訴求の表示用ラベル（app.js の PROMOS / data-placement と対応）
 const PROMO_LABEL = {
@@ -622,7 +628,7 @@ ${opportunity.length > 0 ? `
 </table>
 
 <hr>
-<p style="font-size:12px;color:#666;">詳細はGitHub Issueを確認してください。</p>
+<p style="font-size:12px;color:#666;">本レポートはメールのみで配信しています（運営数値を公開リポジトリに残さないため）。</p>
 `;
 
   await transporter.sendMail({
@@ -974,8 +980,12 @@ async function main() {
   lines.push('- [ ] 📄 ページ別パフォーマンスで科目ページの効果を確認する');
 
   const issueBody = lines.join('\n');
-  await createIssue(`[SEOレポート] ${today}`, issueBody);
-  console.log('✅ SEOレポートIssue作成完了');
+  if (CREATE_ISSUE) {
+    await createIssue(`[SEOレポート] ${today}`, issueBody);
+    console.log('✅ SEOレポートIssue作成完了');
+  } else {
+    console.log('ℹ️ Issueの作成をスキップしました（運営数値を公開しないため）。メールのみ送信します。');
+  }
 
   await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
                     affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
