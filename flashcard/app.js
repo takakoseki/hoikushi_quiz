@@ -64,9 +64,14 @@
   // url が空の案件は描画されない。提携が承認され次第 url を設定するだけで有効化できる。
   const PROMOS = {
     // オンライン音楽教室（実技試験の音楽対策）
+    // 2026-08-12：もしもアフィリエイトのメディア登録が削除されたため、
+    // url を空にして掲載を停止している（url が空の案件は描画されない）。
+    // 再提携できたら、下のコメント行の url / impression を戻すだけで復活する。
     music: {
-      url: '//af.moshimo.com/af/c/click?a_id=5716975&p_id=5100&pc_id=13798&pl_id=66997&url=https%3A%2F%2Fwww.allconne.jp%2F',
-      impression: '//i.moshimo.com/af/i/impression?a_id=5716975&p_id=5100&pc_id=13798&pl_id=66997',
+      url: '',
+      impression: '',
+      // url: '//af.moshimo.com/af/c/click?a_id=5716975&p_id=5100&pc_id=13798&pl_id=66997&url=https%3A%2F%2Fwww.allconne.jp%2F',
+      // impression: '//i.moshimo.com/af/i/impression?a_id=5716975&p_id=5100&pc_id=13798&pl_id=66997',
       cta: '無料体験レッスンを見る',
       subjects: ['保育実習理論'],   // 結果画面で表示する対象科目
       page: {
