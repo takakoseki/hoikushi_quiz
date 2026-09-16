@@ -48,6 +48,14 @@ const SUBJECT_PAGES = {
   '保育実習理論':     'jisshu-riron',
 };
 
+// 科目ページではない独立したテーマページ。
+// 「🔀 科目クエリ」は9科目名との一致で抽出するためこれらを拾えない。
+// どのクエリで表示されているかを個別に追うために定義する。
+const THEME_PAGES = {
+  jitsugi:  '実技試験の選び方',
+  dokugaku: '独学ガイド',
+};
+
 const TARGETS = {
   // 直前期目標（2026年10月31日）
   // 9/9時点で表示504・クリック104・セッション306・平均4.5位。
@@ -441,7 +449,7 @@ function createIssue(title, body) {
 async function sendEmail(reportData, issueBody) {
   const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
           affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
-          subjectQueryRows, competingQueries } = reportData;
+          subjectQueryRows, competingQueries, themeQueryRows } = reportData;
 
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -525,6 +533,10 @@ async function sendEmail(reportData, issueBody) {
     `<tr>${tdl(r.query)}${tdl(r.subject)}${tdl(r.path)}${tdl(r.owner)}${td(r.impressions)}${td(r.clicks)}${td(r.position.toFixed(1)+'位')}</tr>`
   ).join('');
 
+  const themeQueryHtml = themeQueryRows.map(r =>
+    `<tr>${tdl(r.label)}${tdl(r.query)}${td(r.impressions)}${td(r.clicks)}${td(r.position.toFixed(1)+'位')}</tr>`
+  ).join('');
+
   const competingHtml = competingQueries.map(q =>
     q.pages.map((p, i) =>
       `<tr>${tdl(i === 0 ? q.query : '')}${tdl(p.path)}${td(p.impressions)}${td(p.position.toFixed(1)+'位')}</tr>`
@@ -596,6 +608,13 @@ ${subjectQueryRows.length > 0 ? `
   <tr style="background:#f0f0f0;">${th('クエリ')}${th('科目')}${th('表示中のページ')}${th('判定')}${th('表示')}${th('クリック')}${th('順位')}</tr>
   ${subjectQueryHtml}
 </table>` : ''}
+
+<h3>🧭 テーマページがどのクエリで表示されているか（GSC）</h3>
+${themeQueryRows.length > 0 ? `
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('ページ')}${th('クエリ')}${th('表示')}${th('クリック')}${th('順位')}</tr>
+  ${themeQueryHtml}
+</table>` : '<p style="font-size:13px;color:#666;">実技・独学ページはいずれのクエリでも表示されていません。狙ったクエリで圏外の可能性があります。</p>'}
 
 ${competingQueries.length > 0 ? `
 <h3>⚔️ 複数ページが同じクエリを取り合っているもの（GSC）</h3>
@@ -772,6 +791,21 @@ async function main() {
     .sort((a, b) => b.impressions - a.impressions)
     .slice(0, 10);
 
+  // 分析：テーマページ（実技・独学）がどのクエリで表示されているか
+  // 順位は良いのに表示回数が伸びない場合、本命クエリで圏外なのか
+  // そもそも別のクエリで拾われているのかを切り分けるために出す。
+  const themeQueryRows = gscQueryPageRows
+    .map(r => {
+      const [query, page] = r.keys;
+      const path = shortUrl(page);
+      const key = Object.keys(THEME_PAGES).find(k => path.indexOf('/' + k + '/') !== -1);
+      if (!key) return null;
+      return { label: THEME_PAGES[key], query, impressions: r.impressions, clicks: r.clicks, position: r.position };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.impressions - a.impressions)
+    .slice(0, 20);
+
   // 目標達成状況
   const organicSessions = ga4Rows.find(r => r.channel === '検索')?.sessions || 0;
   const posNum = parseFloat(curr.position) || 0;
@@ -912,6 +946,24 @@ async function main() {
     lines.push('');
   }
 
+  if (themeQueryRows.length > 0) {
+    lines.push('---', '');
+    lines.push('## 🧭 テーマページがどのクエリで表示されているか（GSC）');
+    lines.push('実技・独学ページは科目名を含まないため「🔀 科目クエリ」では拾えません。'
+             + '順位が良いのに表示回数が伸びない場合、狙ったクエリで圏外になっている可能性があります。', '');
+    lines.push('| ページ | クエリ | 表示回数 | クリック | 順位 |');
+    lines.push('|-------|-------|---------|--------|-----|');
+    themeQueryRows.forEach(r => lines.push(
+      `| ${r.label} | ${r.query} | ${r.impressions} | ${r.clicks} | ${r.position.toFixed(1)}位 |`
+    ));
+    lines.push('');
+  } else {
+    lines.push('---', '');
+    lines.push('## 🧭 テーマページがどのクエリで表示されているか（GSC）', '');
+    lines.push('_実技・独学ページはいずれのクエリでも表示されていません。'
+             + '狙ったクエリで圏外の可能性があります。_', '');
+  }
+
   if (competingQueries.length > 0) {
     lines.push('---', '');
     lines.push('## ⚔️ 複数ページが同じクエリを取り合っているもの（GSC）');
@@ -997,7 +1049,7 @@ async function main() {
 
   await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
                     affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
-                    subjectQueryRows, competingQueries }, issueBody);
+                    subjectQueryRows, competingQueries, themeQueryRows }, issueBody);
   console.log('✅ SEOレポートメール送信完了');
 }
 
