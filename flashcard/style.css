@@ -963,3 +963,73 @@ body {
 }
 .site-nav a::after { content: ' →'; }
 .site-nav a:hover { background: var(--c-primary-light); }
+
+/* ---- 科目ページの代表問題（静的掲載） ---- */
+/* 問題データは questions.js 内にあり HTML には出ないため、検索エンジンからは
+   「問題集」を名乗りながら問題が1問も無いページに見える。代表問題を静的に
+   書き出して実体を持たせる。クイズ本体とは別物なので簡素な見た目にする。 */
+.sample-q {
+  background: var(--c-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 16px;
+  margin-bottom: 12px;
+}
+.sample-q > p:first-child {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--c-text-sub);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.sample-q h3 {
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
+  font-size: 0.98rem;
+  line-height: 1.8;
+  font-weight: 400;
+  white-space: pre-line;
+  margin-bottom: 12px;
+}
+.sample-q ol {
+  list-style: none;
+  counter-reset: ch;
+  margin-bottom: 12px;
+}
+.sample-q ol li {
+  counter-increment: ch;
+  position: relative;
+  padding: 8px 10px 8px 34px;
+  background: var(--c-bg);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.sample-q ol li::before {
+  content: counter(ch, upper-alpha);
+  position: absolute;
+  left: 9px;
+  top: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sample-q ol li.is-answer { background: var(--c-correct-bg); }
+.sample-q ol li.is-answer::before { background: var(--c-correct); }
+.sample-a {
+  font-size: 0.82rem;
+  line-height: 1.85;
+  color: var(--c-text);
+  background: #faf9f6;
+  border-left: 3px solid var(--c-correct);
+  padding: 11px 13px;
+  border-radius: 0 8px 8px 0;
+}
+.sample-a b { color: var(--c-correct); }
