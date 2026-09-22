@@ -16,12 +16,27 @@ jobs:
       - name: Supabaseから未確認レポートを取得
         id: fetch
         run: |
-          RESPONSE=$(curl -s \
+          # 名前解決の失敗など一過性のエラーで落ちないようリトライする。
+          # リトライなしの場合、curl の終了コード 6 で bash -e により
+          # ステップごと失敗し、その日の報告に気づけなくなる。
+          RESPONSE=$(curl -sS --fail --max-time 60 \
+            --retry 5 --retry-delay 5 --retry-all-errors \
             "https://udrkuswxyfnzdupvqcjg.supabase.co/rest/v1/reports?reviewed=eq.false&select=*&order=created_at.asc" \
             -H "apikey: ${{ secrets.service_role }}" \
             -H "Authorization: Bearer ${{ secrets.service_role }}")
 
-          COUNT=$(echo "$RESPONSE" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+          # 応答が配列でない場合（Supabase のエラー JSON 等）は、
+          # 件数 0 と誤認して静かにスキップせず、明示的に失敗させる。
+          COUNT=$(echo "$RESPONSE" | python3 -c '
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+          except Exception as e:
+              sys.exit("Supabaseの応答がJSONとして読めません: %s" % e)
+          if not isinstance(data, list):
+              sys.exit("Supabaseの応答が配列ではありません: %s" % json.dumps(data, ensure_ascii=False)[:200])
+          print(len(data))
+          ')
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
           # 複数行対応のため delimiter を使用
