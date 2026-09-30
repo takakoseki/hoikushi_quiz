@@ -1,6 +1,22 @@
 
 # 変更履歴
 
+## 2026-09-30
+
+### fix: /flashcard/flashcard/ に転送ページを設置
+
+9/30の週次レポートで、存在しないURL `/flashcard/flashcard/`（表示10回・7.7位）が
+GSCに現れた。現在のコードにも過去の履歴にもこのパスを生成するリンクはなく、
+外部サイトの誤ったリンクかGoogleの推測によるものと考えられる。
+
+9/23に `/shakai-fukushi/`・`/shoku-eiyou/` へ置いたのと同じ方式
+（meta refresh + canonical + `noindex,follow`）で、`/flashcard/` へ転送するページを
+設置した。sitemap.xml には入れていない。
+
+なお9/23に転送ページを置いた2つのURLは、今回のレポートでGSCから消えており、
+転送が機能していることを確認できた。
+
+
 ## 2026-09-29 (2)
 
 ### docs: 一次資料で確認できた定員をID371・ID191の解説に追記
