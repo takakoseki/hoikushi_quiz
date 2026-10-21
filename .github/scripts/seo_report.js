@@ -22,7 +22,7 @@ const CREATE_ISSUE = process.env.CREATE_ISSUE === 'true';
 // アフィリエイト訴求の表示用ラベル（app.js の PROMOS / data-placement と対応）
 const PROMO_LABEL = {
   music:  'オルコネ（音楽教室）',
-  course: '四谷学院（通信講座）',
+  course: '四谷学院（保育士講座）',
   career: '転職サービス',
 };
 const PLACEMENT_LABEL = {
@@ -297,8 +297,10 @@ async function fetchGA4ByDevice(auth, startDate, endDate) {
   }
 }
 
-// アフィリエイト訴求のクリック実績（収益化の唯一の指標）
-async function fetchGA4Affiliate(auth, startDate, endDate) {
+// アフィリエイト訴求のイベント数を「案件 × 設置場所」で集計する（収益化の唯一の指標）。
+//   affiliate_click … リンクのクリック
+//   promo_view      … カードが画面に50%以上入った回数（2026-10-26 計測開始）
+async function fetchGA4PromoEvents(auth, startDate, endDate, eventName) {
   const analyticsdata = google.analyticsdata({ version: 'v1beta', auth });
   try {
     const res = await analyticsdata.properties.runReport({
@@ -311,7 +313,7 @@ async function fetchGA4Affiliate(auth, startDate, endDate) {
           { name: 'customEvent:placement' },
         ],
         dimensionFilter: {
-          filter: { fieldName: 'eventName', stringFilter: { value: 'affiliate_click' } },
+          filter: { fieldName: 'eventName', stringFilter: { value: eventName } },
         },
         orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
       },
@@ -319,13 +321,33 @@ async function fetchGA4Affiliate(auth, startDate, endDate) {
     return (res.data.rows || []).map(r => ({
       promo: r.dimensionValues[0].value,
       placement: r.dimensionValues[1].value,
-      clicks: parseInt(r.metricValues[0].value),
+      count: parseInt(r.metricValues[0].value),
     }));
   } catch (e) {
     // カスタムディメンション未登録時もここに来る
-    console.error('GA4 affiliate error:', e.message);
+    console.error(`GA4 ${eventName} error:`, e.message);
     return [];
   }
+}
+
+// クリックと表示を設置場所ごとに突き合わせる。
+// ASP の表示回数は描画時点で数えられ、見られていないカードも含むため、
+// クリック率は「画面に入った回数（promo_view）」を分母にする。
+function mergePromoRows(clickRows, viewRows) {
+  const map = new Map();
+  const row = (r) => {
+    const key = r.promo + '|' + r.placement;
+    if (!map.has(key)) map.set(key, { promo: r.promo, placement: r.placement, views: 0, clicks: 0 });
+    return map.get(key);
+  };
+  viewRows.forEach(r => { row(r).views += r.count; });
+  clickRows.forEach(r => { row(r).clicks += r.count; });
+  return [...map.values()].sort((a, b) => b.clicks - a.clicks || b.views - a.views);
+}
+
+// 表示が0のとき（計測開始前の期間など）は率を出さない
+function promoCtr(clicks, views) {
+  return views > 0 ? (clicks / views * 100).toFixed(1) + '%' : '–';
 }
 
 // 新規とリピーターの比率（反復利用がこのサイトの強みのため）
@@ -475,10 +497,12 @@ async function sendEmail(reportData, issueBody) {
 
   const affTotalMail = affiliateRows.reduce((s, r) => s + r.clicks, 0);
   const prevAffTotalMail = prevAffiliateRows.reduce((s, r) => s + r.clicks, 0);
+  const viewTotalMail = affiliateRows.reduce((s, r) => s + r.views, 0);
+  const prevViewTotalMail = prevAffiliateRows.reduce((s, r) => s + r.views, 0);
   const affiliateHtml = affiliateRows.length > 0
     ? affiliateRows.map(r =>
-        `<tr>${tdl(PROMO_LABEL[r.promo] || r.promo)}${tdl(PLACEMENT_LABEL[r.placement] || r.placement)}${td(r.clicks)}</tr>`).join('')
-    : `<tr><td colspan="3" style="padding:4px 8px;">クリックなし（カスタムディメンション未登録の場合もここに表示されます）</td></tr>`;
+        `<tr>${tdl(PROMO_LABEL[r.promo] || r.promo)}${tdl(PLACEMENT_LABEL[r.placement] || r.placement)}${td(r.views)}${td(r.clicks)}${td(promoCtr(r.clicks, r.views))}</tr>`).join('')
+    : `<tr><td colspan="5" style="padding:4px 8px;">表示・クリックともなし（カスタムディメンション未登録の場合もここに表示されます）</td></tr>`;
 
   const newReturnHtml = newReturnRows.length > 0
     ? newReturnRows.map(r => {
@@ -553,11 +577,13 @@ async function sendEmail(reportData, issueBody) {
 </table>
 
 <h3>💰 アフィリエイトのクリック（GA4）</h3>
-<p style="font-size:15px;"><strong>合計 ${affTotalMail} クリック</strong>（先週 ${prevAffTotalMail}）</p>
+<p style="font-size:15px;"><strong>合計 ${affTotalMail} クリック</strong>（先週 ${prevAffTotalMail}）<br>
+表示 ${viewTotalMail} 回（先週 ${prevViewTotalMail}）／クリック率 ${promoCtr(affTotalMail, viewTotalMail)}（先週 ${promoCtr(prevAffTotalMail, prevViewTotalMail)}）</p>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#f0f0f0;">${th('案件')}${th('設置場所')}${th('クリック')}</tr>
+  <tr style="background:#f0f0f0;">${th('案件')}${th('設置場所')}${th('表示')}${th('クリック')}${th('クリック率')}</tr>
   ${affiliateHtml}
 </table>
+<p style="font-size:12px;color:#666;">表示＝カードが画面に半分以上入った回数（promo_view、2026-10-26計測開始）。クリック率＝クリック÷表示。A8の表示回数はページ読み込み時点で数えるため、これより多くなる。</p>
 
 <h3>🔁 新規とリピーター（GA4）</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
@@ -683,7 +709,8 @@ async function main() {
   const [
     gscTotals, prevGscTotals,
     gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows, ga4PageRows, ga4DeviceRows,
-    affiliateRows, prevAffiliateRows, newReturnRows, prevNewReturnRows, landingRows, sourceRows,
+    affClickRows, prevAffClickRows, promoViewRows, prevPromoViewRows,
+    newReturnRows, prevNewReturnRows, landingRows, sourceRows,
     gscQueryPageRows,
   ] = await Promise.all([
     fetchGSCTotals(auth, startDate, endDate),
@@ -695,14 +722,20 @@ async function main() {
     fetchGSCByPage(auth, startDate, endDate),
     fetchGA4ByPage(auth, startDate, endDate),
     fetchGA4ByDevice(auth, startDate, endDate),
-    fetchGA4Affiliate(auth, startDate, endDate),
-    fetchGA4Affiliate(auth, prevStartDate, prevEndDate),
+    fetchGA4PromoEvents(auth, startDate, endDate, 'affiliate_click'),
+    fetchGA4PromoEvents(auth, prevStartDate, prevEndDate, 'affiliate_click'),
+    fetchGA4PromoEvents(auth, startDate, endDate, 'promo_view'),
+    fetchGA4PromoEvents(auth, prevStartDate, prevEndDate, 'promo_view'),
     fetchGA4NewVsReturning(auth, startDate, endDate),
     fetchGA4NewVsReturning(auth, prevStartDate, prevEndDate),
     fetchGA4Landing(auth, startDate, endDate),
     fetchGA4Source(auth, startDate, endDate),
     fetchGSCByQueryPage(auth, startDate, endDate),
   ]);
+
+  // 訴求ごとの表示・クリック・クリック率
+  const affiliateRows     = mergePromoRows(affClickRows, promoViewRows);
+  const prevAffiliateRows = mergePromoRows(prevAffClickRows, prevPromoViewRows);
 
   // 今週 GSC 集計（合計値はdimensionsなしの正確な値を使用）
   const totalImpressions = gscTotals.impressions;
@@ -845,14 +878,18 @@ async function main() {
   lines.push('### 💰 アフィリエイトのクリック（GA4）');
   const affTotal = affiliateRows.reduce((s, r) => s + r.clicks, 0);
   const prevAffTotal = prevAffiliateRows.reduce((s, r) => s + r.clicks, 0);
-  lines.push(`**合計 ${affTotal} クリック**（先週 ${prevAffTotal}）${diffLabel(affTotal, prevAffTotal)}`, '');
+  const viewTotal = affiliateRows.reduce((s, r) => s + r.views, 0);
+  const prevViewTotal = prevAffiliateRows.reduce((s, r) => s + r.views, 0);
+  lines.push(`**合計 ${affTotal} クリック**（先週 ${prevAffTotal}）${diffLabel(affTotal, prevAffTotal)}`);
+  lines.push(`表示 ${viewTotal} 回（先週 ${prevViewTotal}）／クリック率 ${promoCtr(affTotal, viewTotal)}（先週 ${promoCtr(prevAffTotal, prevViewTotal)}）`, '');
   if (affiliateRows.length > 0) {
-    lines.push('| 案件 | 設置場所 | クリック |');
-    lines.push('|-----|---------|--------|');
-    affiliateRows.forEach(r => lines.push(`| ${PROMO_LABEL[r.promo] || r.promo} | ${PLACEMENT_LABEL[r.placement] || r.placement} | ${r.clicks} |`));
+    lines.push('| 案件 | 設置場所 | 表示 | クリック | クリック率 |');
+    lines.push('|-----|---------|-----|--------|----------|');
+    affiliateRows.forEach(r => lines.push(`| ${PROMO_LABEL[r.promo] || r.promo} | ${PLACEMENT_LABEL[r.placement] || r.placement} | ${r.views} | ${r.clicks} | ${promoCtr(r.clicks, r.views)} |`));
   } else {
-    lines.push('_クリックなし。カスタムディメンション（promo_id / placement）が未登録の場合もここに表示されます。_');
+    lines.push('_表示・クリックともなし。カスタムディメンション（promo_id / placement）が未登録の場合もここに表示されます。_');
   }
+  lines.push('', '_表示＝カードが画面に半分以上入った回数（promo_view、2026-10-26計測開始）。クリック率＝クリック÷表示。A8の表示回数はページ読み込み時点で数えるため、これより多くなる。_');
   lines.push('');
 
   // ---- 新規とリピーターの比率 ----
