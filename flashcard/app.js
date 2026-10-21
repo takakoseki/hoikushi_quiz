@@ -83,28 +83,29 @@
         body: '保育実習理論を学習中の方へ。実技試験で音楽表現を選ぶ場合、ピアノなどでの弾き歌いが課されます。独学が難しいと感じたら、オンラインの無料体験から試してみる方法もあります。',
       },
     },
-    // 資格の通信講座（学習方法の見直しを検討している層向け）
+    // 四谷学院 保育士講座（学習方法の見直しを検討している層向け）
+    // A8の商品リンクで、総合サイトではなく保育士講座のページ（/hoiku/lp/）へ直接つなぐ。
+    // 商品リンクはリンク文言を自由に設定できるため、内容を説明するだけの短い文言にしている。
+    // 広告主の「合格率」等の数値は引用しない（自社調べの数値で、サイトの信頼に関わるため）。
+    // 掲載ページを増減したら、A8の広告掲載URL管理で提出・削除する（CLAUDE.md ルール53）。
     course: {
-      url: 'https://px.a8.net/svt/ejp?a8mat=4B8ACT+9OW19U+5IEI+5YJRM',
-      impression: 'https://www17.a8.net/0.gif?a8mat=4B8ACT+9OW19U+5IEI+5YJRM',
-      // A8の原稿改変可否が未確認のため、提供された文言をそのまま使用する。
-      // 改変可と確認できたら短い文言に差し替え、ctaStyle を 'button' に変更してよい。
-      cta: '四谷学院通信講座は「誰でも才能を持っている」をモットーに、役立つ資格から、趣味、実用講座などさまざまな通信教育を行っています。',
-      ctaStyle: 'text',
+      url: 'https://px.a8.net/svt/ejp?a8mat=4B8ACT+9OW19U+5IEI+BW8O2&a8ejpredirect=https%3A%2F%2Fyotsuyagakuin-tsushin.com%2Fhoiku%2Flp%2F',
+      impression: 'https://www13.a8.net/0.gif?a8mat=4B8ACT+9OW19U+5IEI+BW8O2',
+      cta: '四谷学院 保育士講座の詳細を見る',
       subjects: [],    // 科目では出し分けない（科目非依存の案件のため）
       maxRate: 60,     // 正答率がこの値未満のときに表示。保育士試験の合格基準（各科目6割）に合わせる
       page: {
         title: '独学に不安があるときの選択肢',
-        body: '一問一答での演習に加えて、体系立てたテキストや添削を使いたい場合は、通信講座という選択肢もあります。資料請求は無料で、教材やカリキュラムを確認してから検討できます。',
+        // 「テキスト・講義動画」はリンク先ページのFAQで確認した教材構成（2026-10-21）
+        body: '一問一答での演習に加えて、テキストや講義動画で体系立てて学びたい場合は、通信講座という選択肢もあります。資料請求は無料で、教材やカリキュラムを確認してから検討できます。',
       },
       result: {
         title: '独学での対策に不安を感じていませんか？',
-        // リンク先は保育士講座の直リンクではなく通信講座の総合サイトのため、
-        // 「保育士講座の資料請求はこちら」とは書かない（着地先との食い違いを避ける）。
-        body: '資格取得の通信講座を検討する選択肢もあります。資料請求は無料で、教材やカリキュラムを確認してから検討できます。',
+        body: '保育士試験向けの通信講座を検討する選択肢もあります。資料請求は無料で、教材やカリキュラムを確認してから検討できます。',
       },
     },
-    // 提携審査中。承認後に url / impression を設定すると自動的に表示される。
+    // 保育士の転職支援。A8で保育メトロと提携済みだが、成果条件が「保育士の有資格者」かつ
+    // 「上京・転居を伴う転職」で、受験生が中心のこのサイトの利用者と合わないため掲載していない。
     career: { url: '', impression: '', cta: '', subjects: [], page: null, result: null },
   };
 
@@ -192,7 +193,30 @@
     }
 
     container.appendChild(card);
+    observePromoView(card, promoKey, placement || variant);
     return true;
+  }
+
+  // カードが実際に画面に入ったときに1回だけ promo_view を送る。
+  // ASPの表示回数は描画した時点で数えられ、ページ末尾のカードは見られていなくても加算されるため、
+  // 「見た人のうち何人がクリックしたか」を測れるよう、別に計測する。
+  // IntersectionObserver が使えない環境では送らない（見られたかどうか判定できないため）。
+  function observePromoView(card, promoKey, placement) {
+    if (typeof IntersectionObserver !== 'function') return;
+    const observer = new IntersectionObserver(function (entries) {
+      if (!entries.some(function (e) { return e.isIntersecting; })) return;
+      observer.disconnect();
+      try {
+        if (typeof gtag === 'function') {
+          gtag('event', 'promo_view', {
+            promo_id: promoKey,
+            placement: placement,
+            subject: state.selectedSubject || (window.PRESET_SUBJECT || 'unknown'),
+          });
+        }
+      } catch (e) { /* 計測失敗は無視 */ }
+    }, { threshold: 0.5 });
+    observer.observe(card);
   }
 
   // ---- State ----
