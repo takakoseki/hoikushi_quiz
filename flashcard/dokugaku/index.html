@@ -187,9 +187,9 @@
         <div class="promo-card" data-promo="course" data-placement="dokugaku">
           <p class="promo-pr">PR</p>
           <p class="promo-title">独学での対策に不安を感じていませんか？</p>
-          <p class="promo-body">資格取得の通信講座を検討する選択肢もあります。資料請求は無料で、教材やカリキュラムを確認してから検討できます。</p>
-          <a class="promo-textlink" id="promo-course-link" href="https://px.a8.net/svt/ejp?a8mat=4B8ACT+9OW19U+5IEI+5YJRM" rel="sponsored nofollow noopener" target="_blank">四谷学院通信講座は「誰でも才能を持っている」をモットーに、役立つ資格から、趣味、実用講座などさまざまな通信教育を行っています。</a>
-          <img src="https://www17.a8.net/0.gif?a8mat=4B8ACT+9OW19U+5IEI+5YJRM" alt="" width="1" height="1" style="border:0">
+          <p class="promo-body">保育士試験向けの通信講座を検討する選択肢もあります。資料請求は無料で、教材やカリキュラムを確認してから検討できます。</p>
+          <a class="promo-link" id="promo-course-link" href="https://px.a8.net/svt/ejp?a8mat=4B8ACT+9OW19U+5IEI+BW8O2&amp;a8ejpredirect=https%3A%2F%2Fyotsuyagakuin-tsushin.com%2Fhoiku%2Flp%2F" rel="sponsored nofollow noopener" target="_blank">四谷学院 保育士講座の詳細を見る</a>
+          <img src="https://www13.a8.net/0.gif?a8mat=4B8ACT+9OW19U+5IEI+BW8O2" alt="" width="1" height="1" style="border:0">
         </div>
       </section>
 
@@ -218,6 +218,21 @@
         }
       } catch (e) { /* 計測失敗は無視 */ }
     });
+
+    // カードが実際に画面に入ったときに1回だけ送る（app.js の promo_view と揃えている）
+    if (typeof IntersectionObserver === 'function') {
+      const promoCard = document.querySelector('.promo-card[data-promo="course"]');
+      const promoObserver = new IntersectionObserver(function (entries) {
+        if (!entries.some(function (e) { return e.isIntersecting; })) return;
+        promoObserver.disconnect();
+        try {
+          if (typeof gtag === 'function') {
+            gtag('event', 'promo_view', { promo_id: 'course', placement: 'dokugaku', subject: '独学' });
+          }
+        } catch (e) { /* 計測失敗は無視 */ }
+      }, { threshold: 0.5 });
+      if (promoCard) promoObserver.observe(promoCard);
+    }
   </script>
 
 </body>
