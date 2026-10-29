@@ -1,0 +1,66 @@
+name: アドホック調査
+
+# Search Console・GA4 から指定した切り口のデータを取得し、メールで送る（手動実行のみ）。
+# 運営数値は公開リポジトリに残さないため、結果はメールのみ。ログに数値は出さない（CLAUDE.md ルール55）。
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: '調査の種類（gsc-pages: ページ別の検索成績とURL検査 / gsc-query: 検索語ごとの表示ページ / ga4-event: GA4イベントの内訳 / ga4-pages: GA4ページ別の利用状況）'
+        type: choice
+        options:
+          - gsc-pages
+          - gsc-query
+          - ga4-event
+          - ga4-pages
+        default: gsc-pages
+      target:
+        description: '対象（gsc-pages: ページ名をカンマ区切り 例 kodomo-hoken,top / gsc-query: 検索語に含まれる文字 / ga4-event: イベント名 / ga4-pages: パスに含まれる文字）'
+        type: string
+        required: true
+      days:
+        description: '集計日数（終端はデータ確定を待つため3日前）'
+        type: string
+        default: '90'
+      limit:
+        description: '表の最大行数'
+        type: string
+        default: '30'
+
+permissions:
+  contents: read
+
+jobs:
+  adhoc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/package.json
+
+      - name: 依存パッケージをインストール
+        run: npm install
+        working-directory: .github/scripts
+
+      - name: 調査を実行してメールで送信
+        run: node .github/scripts/adhoc_report.js
+        env:
+          # 入力値はシェルに直接埋め込まず、環境変数として渡す
+          ADHOC_KIND: ${{ inputs.kind }}
+          ADHOC_TARGET: ${{ inputs.target }}
+          ADHOC_DAYS: ${{ inputs.days }}
+          ADHOC_LIMIT: ${{ inputs.limit }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GSC_SITE_URL: ${{ secrets.GSC_SITE_URL }}
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          NOTIFY_GMAIL_USER: ${{ secrets.NOTIFY_GMAIL_USER }}
+          NOTIFY_GMAIL_APP_PASSWORD: ${{ secrets.NOTIFY_GMAIL_APP_PASSWORD }}
+          NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
