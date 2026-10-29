@@ -132,3 +132,18 @@ npx serve .
 # 特定ファイルの問題数確認
 grep -c '"id":' flashcard/questions.js
 ```
+
+## アドホック調査（Search Console・GA4 のデータ取得）
+
+週次レポート以外の切り口でデータが必要なときは、GitHub Actions の「アドホック調査」（`.github/workflows/adhoc-report.yml`）を手動実行する。結果はメールでのみ届き（ルール55）、Gmail から読んで分析する。Search Console の画面操作をユーザーに依頼する前に、まずこれで取得できないか検討すること。
+
+| kind | target | 取得する内容 |
+|---|---|---|
+| `gsc-pages` | ページ名をカンマ区切り（例 `kodomo-hoken,top`） | ページ別の合計・検索語別の成績・URL検査（登録状態、Google が選んだ正規URLとの一致） |
+| `gsc-query` | 検索語に含まれる文字（例 `子どもの保健`） | その文字を含む検索語ごとに、どのページが何位で出ているか |
+| `ga4-event` | イベント名（例 `promo_view`） | ページ別・案件×設置場所別のイベント数 |
+| `ga4-pages` | パスに含まれる文字（例 `/flashcard/`） | ページ別のセッション・PV・直帰率・滞在時間 |
+
+- `days`（既定90）で集計日数、`limit`（既定30）で表の行数を指定する。集計の終端はデータ確定を待つため3日前
+- 公開リポジトリの Actions ログは誰でも見られるため、スクリプトはログに数値を出さない。改修時もこれを守る
+- 新しい切り口が必要になったら `.github/scripts/adhoc_report.js` の `RECIPES` に関数を1つ追加し、ワークフローの `kind` の選択肢にも足す
