@@ -1,0 +1,27 @@
+name: 例題と問題データの一致チェック
+
+# 科目ページの「例題」は flashcard/questions.js のコピー。
+# 問題を直したのに例題が古いまま残らないよう、PRで一致を確認する（CLAUDE.md ルール61）。
+on:
+  pull_request:
+    paths:
+      - 'flashcard/**'
+      - '.github/scripts/sync_samples.js'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 例題が問題データと一致しているか確認
+        run: node .github/scripts/sync_samples.js --check
