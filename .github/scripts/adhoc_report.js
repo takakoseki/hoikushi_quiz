@@ -194,6 +194,66 @@ const RECIPES = {
         }), `パスに「${TARGET}」を含むページの記録はありません。`);
     },
   },
+
+  // target: ランディングページの値（完全一致）。例「(not set)」「/flashcard/」
+  // そのページから始まったセッションを、日付・参照元・デバイス・ブラウザ・ホスト名・新規/リピーター別に分け、
+  // 全セッションに占める割合と並べて出す。セッション中に記録されたイベントの内訳も出す。
+  // ランディングページが「(not set)」のセッション（ページの表示より前に別のイベントで始まったセッション）の正体を切り分けるために使う
+  'ga4-landing': {
+    label: 'GA4 ランディングページ別の内訳',
+    async run(auth) {
+      if (!TARGET) throw new Error('target にランディングページを指定してください（例: (not set)）');
+      const filter = { dimensionFilter: { filter: { fieldName: 'landingPage', stringFilter: { matchType: 'EXACT', value: TARGET } } } };
+      const num = (r, i) => parseFloat(r.metricValues[i].value);
+      const fmtDate = (v) => /^\d{8}$/.test(v) ? `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6)}` : v;
+      let html = '';
+
+      try {
+        const metrics = [{ name: 'sessions' }, { name: 'engagementRate' }];
+        const [[hit], [all]] = await Promise.all([ga4Rows(auth, { metrics, ...filter }), ga4Rows(auth, { metrics })]);
+        html += hit
+          ? `<p>合計：セッション ${num(hit, 0)}（全セッション ${all ? num(all, 0) : '–'} のうち ${all ? pct(num(hit, 0) / num(all, 0)) : '–'}）／エンゲージメント率 ${pct(num(hit, 1))}（全体 ${all ? pct(num(all, 1)) : '–'}）</p>`
+          : `<p>合計：ランディングページが「${esc(TARGET)}」のセッションはありません。</p>`;
+      } catch (e) { html += failed('合計', e); }
+
+      const BREAKDOWNS = [
+        ['date', '日付'], ['sessionSourceMedium', '参照元 / メディア'], ['deviceCategory', 'デバイス'],
+        ['browser', 'ブラウザ'], ['hostName', 'ホスト名'], ['newVsReturning', '新規 / リピーター'],
+      ];
+      for (const [dim, label] of BREAKDOWNS) {
+        try {
+          const req = { dimensions: [{ name: dim }], metrics: [{ name: 'sessions' }, { name: 'engagementRate' }] };
+          const order = dim === 'date'
+            ? { orderBys: [{ dimension: { dimensionName: 'date' }, desc: true }], limit: LIMIT }
+            : { orderBys: [{ metric: { metricName: 'sessions' }, desc: true }], limit: LIMIT };
+          const [hit, all] = await Promise.all([
+            ga4Rows(auth, { ...req, ...filter, ...order }),
+            ga4Rows(auth, { ...req, limit: 1000 }),
+          ]);
+          const total = new Map(all.map((r) => [r.dimensionValues[0].value, num(r, 0)]));
+          html += `<p><strong>${esc(label)}別</strong>（「全セッション」はランディングページを問わない同じ区分のセッション数）</p>`
+            + table([label, 'セッション', 'エンゲージメント率', '全セッション', '割合'],
+              hit.map((r) => {
+                const v = r.dimensionValues[0].value;
+                const s = num(r, 0);
+                const t = total.get(v) || 0;
+                return [dim === 'date' ? fmtDate(v) : v, s, pct(num(r, 1)), t, t ? pct(s / t) : '–'];
+              }), `ランディングページが「${TARGET}」のセッションはありません。`);
+        } catch (e) { html += failed(`${label}別の内訳`, e); }
+      }
+
+      try {
+        const rows = await ga4Rows(auth, {
+          dimensions: [{ name: 'eventName' }], metrics: [{ name: 'eventCount' }], ...filter,
+          orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }], limit: LIMIT,
+        });
+        html += '<p><strong>セッション中のイベント</strong>（page_view が少なければ、ページの表示を伴わずに始まったセッション）</p>'
+          + table(['イベント名', '回数'], rows.map((r) => [r.dimensionValues[0].value, r.metricValues[0].value]),
+            `ランディングページが「${TARGET}」のセッションにイベントの記録はありません。`);
+      } catch (e) { html += failed('イベントの内訳', e); }
+      return html;
+    },
+  },
 };
 
 async function main() {

@@ -56,30 +56,32 @@ const THEME_PAGES = {
   dokugaku: '独学ガイド',
 };
 
-const TARGETS = {
-  // 直前期目標（2026年10月31日）
-  // 9/9時点で表示504・クリック104・セッション306・平均4.5位。
-  // 10月は年間最大の山で、キーワードプランナーの実測では主力クエリ
-  // 「保育士試験 一問一答」が9月210→10月260（+24%）に伸びる。
-  // 季節係数1.24に、科目ページの順位改善が続く分を上乗せして約1.4倍で設定した。
-  // 平均順位は表示回数が増えるほど下がりやすいため、改善ではなく維持を目標とする。
-  short: {
-    label: '直前期目標',
-    deadline: '2026年10月31日',
-    impressions: 700,
-    clicks: 140,
-    position: 5.0,
-    sessions: 400,
-  },
-  // 中期目標（2026年9月30日）は 9/9 時点で全項目達成済み。
-  // 期限まで達成状況を表示し続けるため、値はそのまま残している。
-  mid: {
-    label: '中期目標',
-    deadline: '2026年9月30日',
-    impressions: 500,
-    clicks: 50,
-    organicSessions: 30,
-  },
+// ---- 目標 ----
+// 実績や量（表示回数・クリック数・セッション数）の目標値は、運営数値にあたるため
+// 公開リポジトリに書かない（CLAUDE.md ルール55）。ここには順位の基準と期限だけを書き、実績はメールにだけ出す。
+// 試験後の閑散期は検索の量が季節で大きく減るため、量ではなく
+// 「科目名で検索されたときに、科目ページが上位に出るか」を9科目それぞれで見る。
+// 量の目標は、前期試験の日程が公式に発表されてから決める。
+const GOAL = {
+  label: '閑散期の目標',
+  deadline: '2027-02-28',           // この日を過ぎたら「期限切れ」と表示する
+  deadlineLabel: '2027年2月28日',
+  maxPosition: 5,                   // 科目ページの平均順位（表示回数で重みづけ）がこの順位以内なら達成
+  days: 90,                         // 集計日数。閑散期は1週間だと表示が少なすぎるため長めにとる
+};
+
+// 科目名と略称。科目ページが表示された検索語のうち、これらを含むものを「科目名の検索」とみなす。
+// 検索語は科目ページに表示されたものに絞るため、「保健」のような短い略称でも他科目と混ざらない。
+const SUBJECT_ALIASES = {
+  '保育原理':         ['保育原理'],
+  '教育原理':         ['教育原理'],
+  '社会福祉':         ['社会福祉'],
+  '子ども家庭福祉':   ['子ども家庭福祉', '家庭福祉'],
+  '社会的養護':       ['社会的養護'],
+  '保育の心理学':     ['保育の心理学', '心理学'],
+  '子どもの保健':     ['子どもの保健', '保健'],
+  '子どもの食と栄養': ['子どもの食と栄養', '食と栄養'],
+  '保育実習理論':     ['保育実習理論', '実習理論'],
 };
 
 // 秒数を m:ss に整形する。先に四捨五入しないと 239.7秒 が「3:60」になる。
@@ -109,15 +111,12 @@ function shortUrl(url) {
   return url.replace(/^https?:\/\/[^/]+/, '') || '/';
 }
 
-function goalStatus(current, target, lowerIsBetter = false) {
-  if (!target) return { pct: '–', icon: '–' };
-  const ratio = lowerIsBetter
-    ? (current > 0 ? target / current : 0)
-    : (target > 0 ? current / target : 0);
-  const achieved = lowerIsBetter ? current <= target : current >= target;
-  const pct = achieved ? '✅ 達成' : `${Math.min(Math.round(ratio * 100), 99)}%`;
-  const icon = achieved ? '🟢' : ratio >= 0.5 ? '🟡' : '🔴';
-  return { pct, icon };
+// 目標の見出し。期限を過ぎたら、古い目標を現在の目標と取り違えないよう「期限切れ」と明示する
+function goalHeading() {
+  // sv-SE ロケールは YYYY-MM-DD 形式になるため、期限の文字列とそのまま比べられる
+  const todayIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
+  const expired = todayIso > GOAL.deadline;
+  return `${GOAL.label}（${GOAL.deadlineLabel}まで）${expired ? '【期限切れ：新しい目標を設定してください】' : ''}`;
 }
 
 async function fetchGSCTotals(auth, startDate, endDate) {
@@ -182,7 +181,7 @@ async function fetchGSCByPage(auth, startDate, endDate) {
 // クエリとページの組み合わせを取得する。
 // クエリ単体・ページ単体の集計では「どのクエリでどのページが出たか」が分からず、
 // 科目ページとトップページの食い合いを判定できないため別途取得する。
-async function fetchGSCByQueryPage(auth, startDate, endDate) {
+async function fetchGSCByQueryPage(auth, startDate, endDate, rowLimit = 250) {
   const webmasters = google.webmasters({ version: 'v3', auth });
   try {
     const res = await webmasters.searchanalytics.query({
@@ -191,7 +190,7 @@ async function fetchGSCByQueryPage(auth, startDate, endDate) {
         startDate,
         endDate,
         dimensions: ['query', 'page'],
-        rowLimit: 250,
+        rowLimit,
       },
     });
     return res.data.rows || [];
@@ -469,7 +468,7 @@ function createIssue(title, body) {
 }
 
 async function sendEmail(reportData, issueBody) {
-  const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
+  const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals,
           affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
           subjectQueryRows, competingQueries, themeQueryRows } = reportData;
 
@@ -551,6 +550,10 @@ async function sendEmail(reportData, issueBody) {
 
   const opportunityHtml = opportunity.map(r =>
     `<tr>${tdl(r.keys[0])}${td(r.position.toFixed(1)+'位')}${td(r.impressions)}</tr>`
+  ).join('');
+
+  const goalRowsHtml = goals.rows.map(r =>
+    `<tr>${tdl(r.subject)}${td(r.impressions)}${td(r.clicks)}${td(r.position === null ? '–' : r.position.toFixed(1) + '位')}${tdl(r.status)}</tr>`
   ).join('');
 
   const subjectQueryHtml = subjectQueryRows.map(r =>
@@ -663,22 +666,16 @@ ${opportunity.length > 0 ? `
   ${opportunityHtml}
 </table>` : ''}
 
-<h3>🎯 目標達成状況</h3>
-<p style="font-size:13px;font-weight:bold;">${TARGETS.short.label}（${TARGETS.short.deadline}まで）</p>
+<h3>🎯 ${goals.heading}</h3>
+<p style="font-size:13px;">試験後は検索の量が季節で大きく減るため、閑散期は量ではなく「科目名で検索されたときに、科目ページが上位に出るか」を目標にしています。量の目標は、前期試験の日程が公式に発表されてから決めます。</p>
+${goals.fetched ? `
+<p style="font-size:13px;font-weight:bold;">目標：9科目すべてで${GOAL.maxPosition}位以内　→　現在 ${goals.achievedCount} / ${goals.total} 科目（直近${GOAL.days}日）</p>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#f0f0f0;">${th('指標')}${th('現在')}${th('目標')}${th('達成率')}</tr>
-  <tr>${tdl('週間表示回数')}${td(curr.impressions)}${td(TARGETS.short.impressions)}${td(`${goals.short.impressions.icon} ${goals.short.impressions.pct}`)}</tr>
-  <tr>${tdl('週間クリック数')}${td(curr.clicks)}${td(TARGETS.short.clicks)}${td(`${goals.short.clicks.icon} ${goals.short.clicks.pct}`)}</tr>
-  <tr>${tdl('平均順位')}${td(curr.position + '位')}${td(TARGETS.short.position + '位以内')}${td(`${goals.short.position.icon} ${goals.short.position.pct}`)}</tr>
-  <tr>${tdl('セッション（週）')}${td(curr.sessions)}${td(TARGETS.short.sessions)}${td(`${goals.short.sessions.icon} ${goals.short.sessions.pct}`)}</tr>
+  <tr style="background:#f0f0f0;">${th('科目')}${th('科目名を含む検索での表示')}${th('クリック')}${th('科目ページの平均順位')}${th('状況')}</tr>
+  ${goalRowsHtml}
 </table>
-<p style="font-size:13px;font-weight:bold;margin-top:12px;">${TARGETS.mid.label}（${TARGETS.mid.deadline}まで）</p>
-<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
-  <tr style="background:#f0f0f0;">${th('指標')}${th('現在')}${th('目標')}${th('達成率')}</tr>
-  <tr>${tdl('週間表示回数')}${td(curr.impressions)}${td(TARGETS.mid.impressions)}${td(`${goals.mid.impressions.icon} ${goals.mid.impressions.pct}`)}</tr>
-  <tr>${tdl('週間クリック数')}${td(curr.clicks)}${td(TARGETS.mid.clicks)}${td(`${goals.mid.clicks.icon} ${goals.mid.clicks.pct}`)}</tr>
-  <tr>${tdl('オーガニックセッション（週）')}${td(organicSessions)}${td(TARGETS.mid.organicSessions)}${td(`${goals.mid.organicSessions.icon} ${goals.mid.organicSessions.pct}`)}</tr>
-</table>
+<p style="font-size:12px;color:#555;">「科目名を含む検索」は、その科目ページが表示された検索語のうち、科目名（「食と栄養」「心理学」「実習理論」などの略称を含む）を含むものだけを数えています。平均順位は表示回数で重みづけ。🟢 ${GOAL.maxPosition}位以内／🟡 ${GOAL.maxPosition}位超／🔴 なし＝科目名の検索で表示されていない（検索の少ない語は Search Console が集計に出さないため）</p>` : `
+<p style="font-size:13px;color:#b00;">目標の集計に使う Search Console のデータを取得できませんでした（全科目が表示なしという意味ではありません）。</p>`}
 
 <hr>
 <p style="font-size:12px;color:#666;">本レポートはメールのみで配信しています（運営数値を公開リポジトリに残さないため）。</p>
@@ -711,7 +708,7 @@ async function main() {
     gscRows, ga4Rows, prevGscRows, prevGa4Rows, gscPageRows, ga4PageRows, ga4DeviceRows,
     affClickRows, prevAffClickRows, promoViewRows, prevPromoViewRows,
     newReturnRows, prevNewReturnRows, landingRows, sourceRows,
-    gscQueryPageRows,
+    gscQueryPageRows, goalQueryPageRows,
   ] = await Promise.all([
     fetchGSCTotals(auth, startDate, endDate),
     fetchGSCTotals(auth, prevStartDate, prevEndDate),
@@ -731,6 +728,8 @@ async function main() {
     fetchGA4Landing(auth, startDate, endDate),
     fetchGA4Source(auth, startDate, endDate),
     fetchGSCByQueryPage(auth, startDate, endDate),
+    // 目標（科目名の検索での科目ページの順位）用。閑散期でも表示が足りるよう長い期間で集計する
+    fetchGSCByQueryPage(auth, dateStr(3 + GOAL.days - 1), endDate, 25000),
   ]);
 
   // 訴求ごとの表示・クリック・クリック率
@@ -839,21 +838,34 @@ async function main() {
     .sort((a, b) => b.impressions - a.impressions)
     .slice(0, 20);
 
-  // 目標達成状況
-  const organicSessions = ga4Rows.find(r => r.channel === '検索')?.sessions || 0;
-  const posNum = parseFloat(curr.position) || 0;
+  // 目標：科目名で検索されたときに、科目ページが何位に出ているか（9科目それぞれ）
+  // 科目ページに表示された検索語のうち、科目名（略称を含む）を含むものだけを集め、
+  // 表示回数で重みづけした平均順位を出す。Search Console は検索の少ない語を集計に出さないため、
+  // 表示が少ない科目は「科目名の検索で表示されていない」と出る。
+  const goalRows = Object.entries(SUBJECT_PAGES).map(([subject, dir]) => {
+    const aliases = (SUBJECT_ALIASES[subject] || [subject]).map(stripSpace);
+    let impressions = 0, clicks = 0, weighted = 0;
+    goalQueryPageRows.forEach(r => {
+      const [query, page] = r.keys;
+      if (!shortUrl(page).includes(`/${dir}/`)) return;
+      const q = stripSpace(query);
+      if (!aliases.some(a => q.includes(a))) return;
+      impressions += r.impressions;
+      clicks += r.clicks;
+      weighted += r.position * r.impressions;
+    });
+    const position = impressions > 0 ? weighted / impressions : null;
+    const achieved = position !== null && position <= GOAL.maxPosition;
+    const status = position === null ? '🔴 なし' : achieved ? '🟢 達成' : `🟡 ${GOAL.maxPosition}位超`;
+    return { subject, impressions, clicks, position, achieved, status };
+  }).sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity));
   const goals = {
-    short: {
-      impressions: goalStatus(curr.impressions, TARGETS.short.impressions),
-      clicks:      goalStatus(curr.clicks,      TARGETS.short.clicks),
-      position:    goalStatus(posNum,            TARGETS.short.position, true),
-      sessions:    goalStatus(curr.sessions,     TARGETS.short.sessions),
-    },
-    mid: {
-      impressions:     goalStatus(curr.impressions, TARGETS.mid.impressions),
-      clicks:          goalStatus(curr.clicks,      TARGETS.mid.clicks),
-      organicSessions: goalStatus(organicSessions,  TARGETS.mid.organicSessions),
-    },
+    heading: goalHeading(),
+    rows: goalRows,
+    achievedCount: goalRows.filter(r => r.achieved).length,
+    total: goalRows.length,
+    // 集計の取得に失敗した場合は、全科目「なし」と区別できるように明示する
+    fetched: goalQueryPageRows.length > 0,
   };
 
   // Issue 本文
@@ -1052,21 +1064,16 @@ async function main() {
   }
 
   lines.push('---', '');
-  lines.push('## 🎯 目標達成状況', '');
-  lines.push(`### ${TARGETS.short.label}（${TARGETS.short.deadline}まで）`, '');
-  lines.push('| 指標 | 現在 | 目標 | 達成率 |');
-  lines.push('|------|------|------|--------|');
-  lines.push(`| 週間表示回数 | ${curr.impressions} | ${TARGETS.short.impressions} | ${goals.short.impressions.icon} ${goals.short.impressions.pct} |`);
-  lines.push(`| 週間クリック数 | ${curr.clicks} | ${TARGETS.short.clicks} | ${goals.short.clicks.icon} ${goals.short.clicks.pct} |`);
-  lines.push(`| 平均順位 | ${curr.position}位 | ${TARGETS.short.position}位以内 | ${goals.short.position.icon} ${goals.short.position.pct} |`);
-  lines.push(`| セッション（週） | ${curr.sessions} | ${TARGETS.short.sessions} | ${goals.short.sessions.icon} ${goals.short.sessions.pct} |`);
-  lines.push('');
-  lines.push(`### ${TARGETS.mid.label}（${TARGETS.mid.deadline}まで）`, '');
-  lines.push('| 指標 | 現在 | 目標 | 達成率 |');
-  lines.push('|------|------|------|--------|');
-  lines.push(`| 週間表示回数 | ${curr.impressions} | ${TARGETS.mid.impressions} | ${goals.mid.impressions.icon} ${goals.mid.impressions.pct} |`);
-  lines.push(`| 週間クリック数 | ${curr.clicks} | ${TARGETS.mid.clicks} | ${goals.mid.clicks.icon} ${goals.mid.clicks.pct} |`);
-  lines.push(`| オーガニックセッション（週） | ${organicSessions} | ${TARGETS.mid.organicSessions} | ${goals.mid.organicSessions.icon} ${goals.mid.organicSessions.pct} |`);
+  lines.push(`## 🎯 ${goals.heading}`, '');
+  if (goals.fetched) {
+    lines.push(`目標：9科目すべてで${GOAL.maxPosition}位以内　→　現在 ${goals.achievedCount} / ${goals.total} 科目（直近${GOAL.days}日）`, '');
+    lines.push('| 科目 | 科目名を含む検索での表示 | クリック | 科目ページの平均順位 | 状況 |');
+    lines.push('|------|------|------|------|------|');
+    goals.rows.forEach(r => lines.push(
+      `| ${r.subject} | ${r.impressions} | ${r.clicks} | ${r.position === null ? '–' : r.position.toFixed(1) + '位'} | ${r.status} |`));
+  } else {
+    lines.push('目標の集計に使う Search Console のデータを取得できませんでした（全科目が表示なしという意味ではありません）。');
+  }
   lines.push('');
 
   lines.push('---', '');
@@ -1084,7 +1091,7 @@ async function main() {
     console.log('ℹ️ Issueの作成をスキップしました（運営数値を公開しないため）。メールのみ送信します。');
   }
 
-  await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals, organicSessions,
+  await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals,
                     affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
                     subjectQueryRows, competingQueries, themeQueryRows }, issueBody);
   console.log('✅ SEOレポートメール送信完了');
