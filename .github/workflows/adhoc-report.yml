@@ -6,16 +6,17 @@ on:
   workflow_dispatch:
     inputs:
       kind:
-        description: '調査の種類（gsc-pages: ページ別の検索成績とURL検査 / gsc-query: 検索語ごとの表示ページ / ga4-event: GA4イベントの内訳 / ga4-pages: GA4ページ別の利用状況）'
+        description: '調査の種類（gsc-pages: ページ別の検索成績とURL検査 / gsc-query: 検索語ごとの表示ページ / ga4-event: GA4イベントの内訳 / ga4-pages: GA4ページ別の利用状況 / ga4-landing: GA4ランディングページ別の内訳）'
         type: choice
         options:
           - gsc-pages
           - gsc-query
           - ga4-event
           - ga4-pages
+          - ga4-landing
         default: gsc-pages
       target:
-        description: '対象（gsc-pages: ページ名をカンマ区切り 例 kodomo-hoken,top / gsc-query: 検索語に含まれる文字 / ga4-event: イベント名 / ga4-pages: パスに含まれる文字）'
+        description: '対象（gsc-pages: ページ名をカンマ区切り 例 kodomo-hoken,top / gsc-query: 検索語に含まれる文字 / ga4-event: イベント名 / ga4-pages: パスに含まれる文字 / ga4-landing: ランディングページ（完全一致） 例 (not set)）'
         type: string
         required: true
       days:
