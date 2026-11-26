@@ -1,0 +1,35 @@
+name: sitemap の更新日チェック
+
+# ページの HTML を変えたのに sitemap.xml の更新日（lastmod）が古いままだと、
+# Google に「変わっていない」と伝える形になり、変更後のページが読み直されにくい（CLAUDE.md ルール104・105・107）。
+# PR で HTML を変えたページだけを点検する。PR で変えていないページは、マージの日付のずれで
+# 関係のない PR が止まらないよう点検しない。
+on:
+  pull_request:
+    paths:
+      - 'flashcard/**/index.html'
+      - 'sitemap.xml'
+      - '.github/scripts/sitemap_lastmod.js'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト（ページを変えた日をたどるため全履歴を取る）
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: PR で変えたページの sitemap の更新日を確認
+        run: node .github/scripts/sitemap_lastmod.js --changed "$BASE_SHA"
+        env:
+          # 入力値はシェルに直接埋め込まず、環境変数として渡す
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
