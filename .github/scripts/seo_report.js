@@ -1,8 +1,14 @@
 'use strict';
 
 const { google } = require('googleapis');
+const fs = require('fs');
+const path = require('path');
 const https = require('https');
 const nodemailer = require('nodemailer');
+
+// クロールと登録の状態を調べるページの一覧。sitemap.xml の loc と lastmod（ページを最後に変えた日）を使う。
+// lastmod は .github/scripts/sitemap_lastmod.js で各ページの最終変更日に合わせている（CLAUDE.md ルール104・105）
+const SITEMAP_PATH = path.join(__dirname, '..', '..', 'sitemap.xml');
 
 const CLIENT_ID       = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET   = process.env.GOOGLE_CLIENT_SECRET;
@@ -117,6 +123,108 @@ function goalHeading() {
   const todayIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
   const expired = todayIso > GOAL.deadline;
   return `${GOAL.label}（${GOAL.deadlineLabel}まで）${expired ? '【期限切れ：新しい目標を設定してください】' : ''}`;
+}
+
+// ---- クロールと登録の状態 ----
+// 例題の追加などページを変えても、Google が読み直すまで検索での効果は出ない。
+// 2026-11 に、例題を入れた3ページが1か月近く読み直されず、1ページは登録から外れていたことに、
+// 効果の確認の日まで気づかなかったため、毎週のレポートで全ページの状態を見る（CLAUDE.md ルール104）。
+
+const isoJst = (d) => new Date(d).toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
+const daysBetween = (fromIso, toIso) => Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 86400000);
+
+function readSitemap(file = SITEMAP_PATH) {
+  const xml = fs.readFileSync(file, 'utf8');
+  return [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(([, block]) => ({
+    loc: (block.match(/<loc>([^<]+)<\/loc>/) || [])[1],
+    lastmod: (block.match(/<lastmod>([^<]+)<\/lastmod>/) || [])[1] || null,
+  })).filter(p => p.loc);
+}
+
+// 1ページずつ URL検査を行う（URL検査の API は1日あたりの回数に上限があるため、まとめて投げない）
+async function fetchCrawlStatus(auth, pages) {
+  const searchconsole = google.searchconsole({ version: 'v1', auth });
+  const rows = [];
+  for (const p of pages) {
+    try {
+      const res = await searchconsole.urlInspection.index.inspect({
+        requestBody: { inspectionUrl: p.loc, siteUrl: GSC_SITE_URL, languageCode: 'ja-JP' },
+      });
+      const s = (res.data.inspectionResult || {}).indexStatusResult || {};
+      rows.push({
+        path: shortUrl(p.loc),
+        lastmod: p.lastmod,
+        lastCrawl: s.lastCrawlTime ? isoJst(s.lastCrawlTime) : null,
+        verdict: s.verdict || null,
+        coverageState: s.coverageState || null,
+        canonicalOk: !s.googleCanonical || !s.userCanonical || s.googleCanonical === s.userCanonical,
+        error: false,
+      });
+    } catch (e) {
+      console.error(`URL検査に失敗しました: ${shortUrl(p.loc)}: ${e.message}`);
+      rows.push({ path: shortUrl(p.loc), lastmod: p.lastmod, error: true });
+    }
+  }
+  return rows;
+}
+
+// 状態の判定。level が小さいほど対応が必要（表の並び順にも使う）
+function classifyCrawl(row, todayIso) {
+  if (row.error) return { level: 3, status: '❔ 取得できず' };
+  if (row.verdict !== 'PASS') return { level: 0, status: '🔴 登録されていない' };
+  if (!row.canonicalOk) return { level: 1, status: '⚠️ 正規URLが一致しない' };
+  if (row.lastmod && (!row.lastCrawl || row.lastCrawl < row.lastmod)) {
+    return { level: 1, status: `⚠️ 変更後にまだ読まれていない（変更から${daysBetween(row.lastmod, todayIso)}日）` };
+  }
+  return { level: 2, status: '✅ 変更後に読まれている' };
+}
+
+// レポートの欄（メールの HTML と、テキスト版の Markdown）を作る
+function buildCrawlSection(rows, todayIso) {
+  const items = rows
+    .map((r, i) => ({ ...r, ...classifyCrawl(r, todayIso), order: i }))
+    .sort((a, b) => a.level - b.level || a.order - b.order);
+  const fetched = items.some(r => !r.error);
+  const notIndexed = items.filter(r => r.level === 0).length;
+  const notCrawled = items.filter(r => r.level === 1).length;
+  const failed = items.filter(r => r.error).length;
+
+  const summary = !fetched
+    ? 'URL検査の結果を取得できませんでした（すべてのページに問題がないという意味ではありません）。'
+    : notIndexed + notCrawled === 0
+      ? `いずれのページでも、登録されていないページや、変更後にまだ読まれていないページはありません（${items.length}ページ）。`
+      : `${items.length}ページのうち、🔴 登録されていないページが ${notIndexed}件、⚠️ 要確認のページ（変更後にまだ読まれていない・正規URLが一致しない）が ${notCrawled}件あります。`;
+  const failedNote = fetched && failed > 0 ? `URL検査を取得できなかったページが ${failed}件あります。` : '';
+  const action = '🔴・⚠️ のページは、Search Console の URL検査で「インデックス登録をリクエスト」を行う。ページを変えたのに読まれていない場合は、sitemap.xml の更新日が変更日になっているかも確かめる。';
+  const alert = fetched && notIndexed + notCrawled > 0
+    ? `⚠️ 要確認のページがあります（🔴 ${notIndexed}件・⚠️ ${notCrawled}件）。下の「🔎 クロールと登録の状態」の欄を確かめてください。`
+    : '';
+  const cell = (v) => v === null || v === undefined ? '–' : v;
+
+  const lines = ['## 🔎 クロールと登録の状態（Search Console の URL検査）', '', summary, ''];
+  if (failedNote) lines.push(failedNote, '');
+  if (fetched) {
+    lines.push('| ページ | 状況 | サイトの更新日 | Google の最終クロール | 登録の状態 |');
+    lines.push('|-------|------|-------------|------------------|----------|');
+    items.forEach(r => lines.push(`| ${r.path} | ${r.status} | ${cell(r.lastmod)} | ${cell(r.lastCrawl)} | ${cell(r.coverageState)} |`));
+    lines.push('', `_${action}_`, '');
+  }
+
+  const tdl = (v) => `<td style="padding:4px 8px;">${v}</td>`;
+  const th = (v) => `<th style="padding:4px 8px;">${v}</th>`;
+  const rowBg = (lv) => lv === 0 ? ' style="background:#fdd;"' : lv === 1 ? ' style="background:#ffe;"' : '';
+  const html = `
+<h3>🔎 クロールと登録の状態（Search Console の URL検査）</h3>
+<p style="font-size:13px;${notIndexed + notCrawled > 0 ? 'font-weight:bold;' : ''}">${summary}</p>
+${failedNote ? `<p style="font-size:13px;color:#b00;">${failedNote}</p>` : ''}
+${fetched ? `
+<table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+  <tr style="background:#f0f0f0;">${th('ページ')}${th('状況')}${th('サイトの更新日')}${th('Google の最終クロール')}${th('登録の状態')}</tr>
+  ${items.map(r => `<tr${rowBg(r.level)}>${tdl(r.path)}${tdl(r.status)}${tdl(cell(r.lastmod))}${tdl(cell(r.lastCrawl))}${tdl(cell(r.coverageState))}</tr>`).join('')}
+</table>
+<p style="font-size:12px;color:#555;">${action}「サイトの更新日」は sitemap.xml の lastmod（ページを最後に変えた日）。Google が最後に読んだ日がこれより前なら、変更後のページはまだ検索に反映されていない。</p>` : ''}`;
+
+  return { html, lines, alert, fetched };
 }
 
 async function fetchGSCTotals(auth, startDate, endDate) {
@@ -470,7 +578,7 @@ function createIssue(title, body) {
 async function sendEmail(reportData, issueBody) {
   const { today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals,
           affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
-          subjectQueryRows, competingQueries, themeQueryRows } = reportData;
+          subjectQueryRows, competingQueries, themeQueryRows, crawl } = reportData;
 
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -572,6 +680,7 @@ async function sendEmail(reportData, issueBody) {
 
   const html = `
 <h2>📊 週次SEOレポート（${today}）</h2>
+${crawl.alert ? `<p style="font-size:14px;font-weight:bold;color:#b00;">${crawl.alert}</p>` : ''}
 
 <h3>📈 今週 vs 先週</h3>
 <table border="1" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
@@ -666,6 +775,8 @@ ${opportunity.length > 0 ? `
   ${opportunityHtml}
 </table>` : ''}
 
+${crawl.html}
+
 <h3>🎯 ${goals.heading}</h3>
 <p style="font-size:13px;">試験後は検索の量が季節で大きく減るため、閑散期は量ではなく「科目名で検索されたときに、科目ページが上位に出るか」を目標にしています。量の目標は、前期試験の日程が公式に発表されてから決めます。</p>
 ${goals.fetched ? `
@@ -731,6 +842,11 @@ async function main() {
     // 目標（科目名の検索での科目ページの順位）用。閑散期でも表示が足りるよう長い期間で集計する
     fetchGSCByQueryPage(auth, dateStr(3 + GOAL.days - 1), endDate, 25000),
   ]);
+
+  // クロールと登録の状態（sitemap.xml の全ページ）。sitemap を読めなかったときは「取得できず」と出す
+  let sitemapPages = [];
+  try { sitemapPages = readSitemap(); } catch (e) { console.error(`sitemap.xml を読めませんでした: ${e.message}`); }
+  const crawl = buildCrawlSection(await fetchCrawlStatus(auth, sitemapPages), isoJst(Date.now()));
 
   // 訴求ごとの表示・クリック・クリック率
   const affiliateRows     = mergePromoRows(affClickRows, promoViewRows);
@@ -873,6 +989,7 @@ async function main() {
     `## 📊 週次SEOレポート（${today}）`,
     `集計期間：${startDate} 〜 ${endDate}`,
     '',
+    ...(crawl.alert ? [crawl.alert, ''] : []),
     '## 📈 今週 vs 先週',
     '',
     '| 指標 | 今週 | 先週 | 前週比 |',
@@ -1064,6 +1181,9 @@ async function main() {
   }
 
   lines.push('---', '');
+  lines.push(...crawl.lines);
+
+  lines.push('---', '');
   lines.push(`## 🎯 ${goals.heading}`, '');
   if (goals.fetched) {
     lines.push(`目標：9科目すべてで${GOAL.maxPosition}位以内　→　現在 ${goals.achievedCount} / ${goals.total} 科目（直近${GOAL.days}日）`, '');
@@ -1082,6 +1202,7 @@ async function main() {
   lines.push('- [ ] 🟡 チャンスクエリをXで重点的に発信する');
   lines.push('- [ ] 流入元を確認し、弱いチャネルへの施策を検討する');
   lines.push('- [ ] 📄 ページ別パフォーマンスで科目ページの効果を確認する');
+  lines.push('- [ ] 🔎 登録されていない・変更後にまだ読まれていないページがあれば、Search Console で登録をリクエストする');
 
   const issueBody = lines.join('\n');
   if (CREATE_ISSUE) {
@@ -1093,11 +1214,16 @@ async function main() {
 
   await sendEmail({ today, curr, prev, ga4Rows, ga4PageRows, ga4DeviceRows, topPages, lowCtr, opportunity, goals,
                     affiliateRows, prevAffiliateRows, newReturnRows, landingRows, sourceRows,
-                    subjectQueryRows, competingQueries, themeQueryRows }, issueBody);
+                    subjectQueryRows, competingQueries, themeQueryRows, crawl }, issueBody);
   console.log('✅ SEOレポートメール送信完了');
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+// 欄の見本をダミーデータで作って確かめられるよう、直接実行したときだけ main を動かす
+if (require.main === module) {
+  main().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+module.exports = { readSitemap, classifyCrawl, buildCrawlSection };
